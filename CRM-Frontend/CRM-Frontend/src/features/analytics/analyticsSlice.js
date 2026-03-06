@@ -153,8 +153,8 @@ import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import API from "../../api/axios";
 
 /* ============================================================
-   THUNKS
-============================================================ */
+    THUNKS
+  ============================================================ */
 
 export const fetchDashboardAnalytics = createAsyncThunk(
   "analytics/dashboard",
@@ -286,8 +286,8 @@ export const fetchDealMomentum = createAsyncThunk(
   },
 );
 /* ============================================================
-   SLICE
-============================================================ */
+    SLICE
+  ============================================================ */
 
 const analyticsSlice = createSlice({
   name: "analytics",
@@ -301,6 +301,7 @@ const analyticsSlice = createSlice({
     recentActivities: null,
 
     dealMomentum: [],
+    // dealMomentumCount: 0,
     dealMomentumLoading: false,
 
     /* NEW */

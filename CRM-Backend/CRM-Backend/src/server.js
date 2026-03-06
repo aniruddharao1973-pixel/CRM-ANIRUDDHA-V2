@@ -94,6 +94,8 @@ import "./jobs/dealReminder.job.js";
 import aiRoutes from "./routes/ai.routes.js";
 import dealRiskRoutes from "./routes/dealRisk.routes.js";
 import { warmUpModel, getModelStatus } from "./ai/aiClient.js";
+import emailRoutes from "./modules/email/email.routes.js";
+
 dotenv.config();
 
 const app = express();
@@ -121,7 +123,7 @@ app.use(
   cors({
     origin: process.env.CLIENT_URL || "http://localhost:5173",
     credentials: true,
-  })
+  }),
 );
 
 app.use(express.json({ limit: "10mb" }));
@@ -143,6 +145,7 @@ app.use("/api/tasks", taskRoutes);
 app.use("/api/reminders", reminderRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/ai", aiRoutes);
+app.use("/api/email", emailRoutes);
 // app.get("/api/health", (req, res) => {
 //   res.json({ status: "OK", timestamp: new Date().toISOString() });
 // });

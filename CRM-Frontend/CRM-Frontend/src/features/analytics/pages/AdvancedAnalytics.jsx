@@ -1418,13 +1418,12 @@
 //       </div>
 
 //       {/* Subtle footer */}
-//       <div className="text-center py-6 text-[11px] text-slate-300">  
+//       <div className="text-center py-6 text-[11px] text-slate-300">
 //         SalesCRM Pro Suite · Advanced Analytics
 //       </div>
 //     </div>
 //   );
 // }
-
 
 // CRM-Frontend-main\src\features\analytics\pages\AdvancedAnalytics.jsx
 import React, { useEffect, useState } from "react";
@@ -1553,7 +1552,7 @@ function DonutChart({ data }) {
         />
         {data.map((d, i) => {
           if (!d.count) return null;
-          const dash = (d.count / total) * circumference;
+          const dash = total > 0 ? (d.count / total) * circumference : 0;
           const gap = circumference - dash;
           const color = STAGE_COLORS[d.stage] || "#94a3b8";
           const el = (
@@ -1727,9 +1726,9 @@ function VisualFunnel({ data }) {
 
   // enforce pipeline order instead of sorting by count
   // sort by count DESC (2 → 2 → 1 → 1)
-  const ordered = [...data]
-    .filter((s) => s.count > 0)
-    .sort((a, b) => b.count - a.count);
+  const ordered = STAGE_ORDER.map((stage) =>
+    data.find((d) => d.stage === stage),
+  ).filter((s) => s && s.count > 0);
 
   const maxCount = Math.max(...ordered.map((s) => s.count), 1);
 
@@ -1798,9 +1797,9 @@ function VisualFunnel({ data }) {
 function FunnelLegend({ data }) {
   // enforce pipeline order instead of sorting by count
   // sort by count DESC
-  const ordered = [...data]
-    .filter((s) => s.count > 0)
-    .sort((a, b) => b.count - a.count);
+  const ordered = STAGE_ORDER.map((stage) =>
+    data.find((d) => d.stage === stage),
+  ).filter((s) => s && s.count > 0);
 
   const maxCount = Math.max(...ordered.map((s) => s.count), 1);
 
@@ -2034,16 +2033,27 @@ export default function AdvancedAnalytics() {
   //   deals: { winRate: 0 },
   //   thisMonth: { growth: 0 },
   // };
+  // const safeDashboard = {
+  //   summary: {
+  //     totalPipelineValue: dashboard?.summary?.totalPipelineValue ?? 0,
+  //     averageDealSize: dashboard?.summary?.averageDealSize ?? 0,
+  //   },
+  //   deals: {
+  //     winRate: dashboard?.deals?.winRate ?? 0,
+  //   },
+  //   thisMonth: {
+  //     growth: dashboard?.thisMonth?.growth ?? 0,
+  //   },
+  // };
+
   const safeDashboard = {
     summary: {
-      totalPipelineValue: dashboard?.summary?.totalPipelineValue ?? 0,
-      averageDealSize: dashboard?.summary?.averageDealSize ?? 0,
+      totalDeals: dashboard?.summary?.totalDeals ?? 0,
+      openDeals: dashboard?.summary?.openDeals ?? 0,
+      closedDeals: dashboard?.summary?.closedDeals ?? 0,
     },
-    deals: {
-      winRate: dashboard?.deals?.winRate ?? 0,
-    },
-    thisMonth: {
-      growth: dashboard?.thisMonth?.growth ?? 0,
+    performance: {
+      winRate: dashboard?.performance?.winRate ?? 0,
     },
   };
 
@@ -2167,7 +2177,13 @@ Strategic Recommendation: <one sentence>
       }
 
       const answer = await askAnalyticsAI(question);
-      setAiInsight(answer);
+
+      if (!answer || typeof answer !== "string") {
+        setAiInsight("Unable to generate insights.");
+        return;
+      }
+
+      setAiInsight(answer.trim());
     } finally {
       setAiLoading(false);
     }
@@ -2312,9 +2328,18 @@ Strategic Recommendation: <one sentence>
                 </div>
               ) : aiInsight ? (
                 (() => {
-                  const clean = aiInsight
+                  const clean = (aiInsight || "")
                     .replace(/\*\*/g, "")
-                    .replace(/\\n/g, "\n");
+                    .replace(/\\n/g, "\n")
+                    .replace(/\r/g, "")
+                    .replace(/Pipeline Status:/g, "\nPipeline Status:")
+                    .replace(/Main Risk:/g, "\nMain Risk:")
+                    .replace(/Immediate Action:/g, "\nImmediate Action:")
+                    .replace(
+                      /Strategic Recommendation:/g,
+                      "\nStrategic Recommendation:",
+                    )
+                    .trim();
 
                   const isDetailed = insightMode === "detailed";
 
@@ -2326,13 +2351,22 @@ Strategic Recommendation: <one sentence>
                       "Strategic Recommendation",
                     ];
 
-                    const lines = clean
-                      .split("\n")
-                      .map((l) => l.trim())
-                      .filter((l) =>
-                        allowedHeadings.some((h) => l.startsWith(h + ":")),
-                      )
-                      .slice(0, 4); // 🚀 force max 4 lines only
+                    // 🔧 Robust parser (handles AI line breaks)
+                    const extract = (start, end) => {
+                      const regex = new RegExp(
+                        `${start}:\\s*([\\s\\S]*?)(?=${end}:|$)`,
+                        "i",
+                      );
+                      const match = clean.match(regex);
+                      return match ? match[1].replace(/\n/g, " ").trim() : "";
+                    };
+
+                    const lines = [
+                      `Pipeline Status: ${extract("Pipeline Status", "Main Risk")}`,
+                      `Main Risk: ${extract("Main Risk", "Immediate Action")}`,
+                      `Immediate Action: ${extract("Immediate Action", "Strategic Recommendation")}`,
+                      `Strategic Recommendation: ${extract("Strategic Recommendation", "$")}`,
+                    ];
 
                     return (
                       <div className="space-y-6">
@@ -2396,20 +2430,53 @@ Strategic Recommendation: <one sentence>
                       </div>
                     );
                   }
-                  // 🔥 DETAILED MODE — CLEAN SECTION PARSER
-                  const sectionRegex = /(\d+\.\s[A-Z _]+)/g;
-                  const parts = clean.split(sectionRegex).filter(Boolean);
+
+                  // 🔥 DETAILED MODE — IMPROVED SECTION PARSER
+                  // 🔥 DETAILED MODE — SMART PARSER (forces point-wise insights)
 
                   const sections = [];
-                  for (let i = 0; i < parts.length; i += 2) {
+
+                  const pipeline = clean.match(
+                    /Pipeline Status:(.*?)(Main Risk:|$)/s,
+                  );
+                  const risk = clean.match(
+                    /Main Risk:(.*?)(Strategic Recommendation:|$)/s,
+                  );
+                  const rec = clean.match(/Strategic Recommendation:(.*)/s);
+
+                  if (pipeline) {
                     sections.push({
-                      title: parts[i],
-                      content: parts[i + 1] || "",
+                      title: "Pipeline Status",
+                      content: pipeline[1].trim(),
+                    });
+                  }
+
+                  if (risk) {
+                    const riskPoints = risk[1]
+                      .split(/\d+\./)
+                      .map((t) => t.trim())
+                      .filter(Boolean);
+
+                    sections.push({
+                      title: "Risk Analysis",
+                      content: riskPoints,
+                    });
+                  }
+
+                  if (rec) {
+                    const recPoints = rec[1]
+                      .split(/\d+\./)
+                      .map((t) => t.trim())
+                      .filter(Boolean);
+
+                    sections.push({
+                      title: "Strategic Recommendations",
+                      content: recPoints,
                     });
                   }
 
                   return (
-                    <div className="space-y-8">
+                    <div className="space-y-10">
                       <div className="text-right text-xs text-slate-400">
                         Generated at{" "}
                         {new Date().toLocaleTimeString([], {
@@ -2423,19 +2490,23 @@ Strategic Recommendation: <one sentence>
                         let titleColor = "text-indigo-600";
                         let dotColor = "bg-indigo-500";
 
-                        if (section.title.includes("RISK")) {
+                        if (section.title.toUpperCase().includes("RISK")) {
                           borderColor = "border-rose-200";
                           titleColor = "text-rose-600";
                           dotColor = "bg-rose-500";
                         }
 
-                        if (section.title.includes("OPPORTUNITY")) {
+                        if (
+                          section.title.toUpperCase().includes("OPPORTUNITY")
+                        ) {
                           borderColor = "border-blue-200";
                           titleColor = "text-blue-600";
                           dotColor = "bg-blue-500";
                         }
 
-                        if (section.title.includes("RECOMMENDATION")) {
+                        if (
+                          section.title.toUpperCase().includes("RECOMMENDATION")
+                        ) {
                           borderColor = "border-emerald-200";
                           titleColor = "text-emerald-600";
                           dotColor = "bg-emerald-500";
@@ -2447,34 +2518,28 @@ Strategic Recommendation: <one sentence>
                             className={`rounded-3xl border ${borderColor} bg-white shadow-sm p-8`}
                           >
                             <h3
-                              className={`text-lg font-bold mb-4 ${titleColor}`}
+                              className={`text-xl font-semibold tracking-tight mb-4 ${titleColor}`}
                             >
                               {section.title}
                             </h3>
 
                             <div className="space-y-3">
-                              {section.content
-                                .split("\n")
-                                .filter(Boolean)
-                                .map((line, i) =>
-                                  line.startsWith("-") ? (
-                                    <div key={i} className="flex gap-3">
-                                      <div
-                                        className={`h-2 w-2 mt-2 rounded-full ${dotColor}`}
-                                      />
-                                      <p className="text-sm text-slate-700 leading-relaxed">
-                                        {line.replace("-", "").trim()}
-                                      </p>
-                                    </div>
-                                  ) : (
-                                    <p
-                                      key={i}
-                                      className="text-sm text-slate-700 leading-relaxed"
-                                    >
+                              {Array.isArray(section.content) ? (
+                                section.content.map((line, i) => (
+                                  <div key={i} className="flex gap-3">
+                                    <div
+                                      className={`h-2 w-2 mt-2 rounded-full ${dotColor}`}
+                                    />
+                                    <p className="text-base text-slate-700 leading-relaxed">
                                       {line}
                                     </p>
-                                  ),
-                                )}
+                                  </div>
+                                ))
+                              ) : (
+                                <p className="text-base text-slate-700 leading-relaxed">
+                                  {section.content}
+                                </p>
+                              )}
                             </div>
                           </div>
                         );

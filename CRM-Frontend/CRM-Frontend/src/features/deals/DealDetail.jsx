@@ -100,6 +100,9 @@ import { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { fetchDeal, updateDeal, clearCurrentDeal } from "./dealSlice";
+import SendEmailModal from "../email/components/SendEmailModal";
+import EmailTemplateManager from "../email/components/EmailTemplateManager";
+import EmailLogs from "../email/components/EmailLogs";
 import {
   STAGE_COLORS,
   PROGRESS_STAGES,
@@ -231,6 +234,9 @@ const DealDetail = () => {
   const [tab, setTab] = useState("overview");
   const [updatingStage, setUpdatingStage] = useState(false);
   const [hoveredStage, setHoveredStage] = useState(null);
+  const [showSendEmail, setShowSendEmail] = useState(false);
+  const [showTemplates, setShowTemplates] = useState(false);
+  const [showEmailLogs, setShowEmailLogs] = useState(false);
 
   useEffect(() => {
     dispatch(fetchDeal(id));
@@ -273,6 +279,7 @@ const DealDetail = () => {
       {/* ───────────── HEADER ───────────── */}
       <div className="bg-white border border-gray-100 rounded-2xl p-6 shadow-sm">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+          {/* LEFT SIDE */}
           <div className="flex items-center gap-4">
             {/* back btn */}
             <button
@@ -288,8 +295,8 @@ const DealDetail = () => {
                 isClosed && deal.stage === "CLOSED_WON"
                   ? "bg-gradient-to-br from-green-400 to-emerald-500"
                   : isClosed
-                  ? "bg-gradient-to-br from-red-400 to-rose-500"
-                  : "bg-gradient-to-br from-blue-500 to-indigo-600"
+                    ? "bg-gradient-to-br from-red-400 to-rose-500"
+                    : "bg-gradient-to-br from-blue-500 to-indigo-600"
               }`}
             >
               <CurrencyDollarIcon className="w-7 h-7 text-white" />
@@ -301,6 +308,7 @@ const DealDetail = () => {
                 <h1 className="text-2xl font-bold text-gray-900 tracking-tight">
                   {deal.dealName}
                 </h1>
+
                 <span
                   className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${
                     STAGE_COLORS[deal.stage]
@@ -314,10 +322,13 @@ const DealDetail = () => {
                 <span className="font-mono text-xs bg-gray-100 px-2 py-0.5 rounded-md">
                   {deal.dealLogId}
                 </span>
+
                 <span>•</span>
+
                 <span className="font-semibold text-gray-700">
                   {formatCurrency(deal.amount)}
                 </span>
+
                 {deal.closingDate && (
                   <>
                     <span>•</span>
@@ -331,8 +342,42 @@ const DealDetail = () => {
             </div>
           </div>
 
-          {/* action buttons */}
+          {/* RIGHT SIDE ACTIONS */}
           <div className="flex items-center gap-2">
+            {/* Send Email */}
+            <button
+              onClick={() => {
+                if (!deal.contact?.email) {
+                  alert("Contact email not available for this deal");
+                  return;
+                }
+                setShowSendEmail(true);
+              }}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium bg-gray-100 hover:bg-gray-200"
+            >
+              <EnvelopeIcon className="w-4 h-4" />
+              Send Email
+            </button>
+
+            {/* Email Logs */}
+            <button
+              onClick={() => setShowEmailLogs(true)}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-xl text-sm font-medium"
+            >
+              <ClockIcon className="w-4 h-4" />
+              Emails
+            </button>
+
+            {/* Templates */}
+            <button
+              onClick={() => setShowTemplates(true)}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-xl text-sm font-medium"
+            >
+              <DocumentTextIcon className="w-4 h-4" />
+              Templates
+            </button>
+
+            {/* Edit Deal */}
             <button
               onClick={() => navigate(`/deals/${id}/edit`)}
               className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl text-sm font-semibold hover:from-blue-700 hover:to-indigo-700 shadow-sm shadow-blue-200 transition-all duration-200"
@@ -357,11 +402,7 @@ const DealDetail = () => {
           label="Probability"
           value={`${probability}%`}
           subtext={
-            probability >= 75
-              ? "High"
-              : probability >= 50
-              ? "Medium"
-              : "Low"
+            probability >= 75 ? "High" : probability >= 50 ? "Medium" : "Low"
           }
           color="purple"
         />
@@ -399,14 +440,14 @@ const DealDetail = () => {
             <div className="w-32 h-2 bg-gray-100 rounded-full overflow-hidden">
               <div
                 className={`h-full rounded-full transition-all duration-500 ${getProbabilityBg(
-                  probability
+                  probability,
                 )}`}
                 style={{ width: `${probability}%` }}
               />
             </div>
             <span
               className={`text-sm font-bold ${getProbabilityColor(
-                probability
+                probability,
               )}`}
             >
               {probability}%
@@ -421,9 +462,7 @@ const DealDetail = () => {
             const isPast = idx < currentIdx;
             const isFuture = idx > currentIdx;
             const StageIcon = getStageIcon(stage);
-            const pipelineInfo = PIPELINE_STAGES.find(
-              (p) => p.key === stage
-            );
+            const pipelineInfo = PIPELINE_STAGES.find((p) => p.key === stage);
 
             return (
               <div key={stage} className="flex items-center">
@@ -433,18 +472,18 @@ const DealDetail = () => {
                   onMouseEnter={() => setHoveredStage(stage)}
                   onMouseLeave={() => setHoveredStage(null)}
                   className={`
-                    relative flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium
-                    transition-all duration-200 whitespace-nowrap border
-                    ${
-                      isActive
-                        ? `${STAGE_COLORS[stage]} border-current shadow-sm scale-105`
-                        : isPast
-                        ? "bg-green-50 text-green-700 border-green-200 hover:bg-green-100"
-                        : "bg-gray-50 text-gray-500 border-gray-200 hover:bg-gray-100 hover:text-gray-700"
-                    }
-                    ${updatingStage ? "opacity-60 cursor-not-allowed" : "cursor-pointer"}
-                    ${hoveredStage === stage && !isActive ? "ring-2 ring-blue-200" : ""}
-                  `}
+                      relative flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium
+                      transition-all duration-200 whitespace-nowrap border
+                      ${
+                        isActive
+                          ? `${STAGE_COLORS[stage]} border-current shadow-sm scale-105`
+                          : isPast
+                            ? "bg-green-50 text-green-700 border-green-200 hover:bg-green-100"
+                            : "bg-gray-50 text-gray-500 border-gray-200 hover:bg-gray-100 hover:text-gray-700"
+                      }
+                      ${updatingStage ? "opacity-60 cursor-not-allowed" : "cursor-pointer"}
+                      ${hoveredStage === stage && !isActive ? "ring-2 ring-blue-200" : ""}
+                    `}
                 >
                   {isPast && (
                     <CheckCircleSolid className="w-3.5 h-3.5 text-green-500" />
@@ -485,14 +524,14 @@ const DealDetail = () => {
                 key={t.key}
                 onClick={() => setTab(t.key)}
                 className={`
-                  flex items-center gap-2 px-6 py-4 text-sm font-medium transition-all
-                  border-b-2 -mb-px
-                  ${
-                    tab === t.key
-                      ? "border-blue-600 text-blue-600 bg-blue-50/30"
-                      : "border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50"
-                  }
-                `}
+                    flex items-center gap-2 px-6 py-4 text-sm font-medium transition-all
+                    border-b-2 -mb-px
+                    ${
+                      tab === t.key
+                        ? "border-blue-600 text-blue-600 bg-blue-50/30"
+                        : "border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50"
+                    }
+                  `}
               >
                 <Icon className="w-4 h-4" />
                 {t.label}
@@ -716,12 +755,10 @@ const DealDetail = () => {
                     </div>
                     <div className="h-px bg-white/20" />
                     <div className="flex justify-between items-center">
-                      <span className="text-sm opacity-80">
-                        Weighted Value
-                      </span>
+                      <span className="text-sm opacity-80">Weighted Value</span>
                       <span className="text-lg font-bold">
                         {formatCurrency(
-                          ((deal.amount || 0) * probability) / 100
+                          ((deal.amount || 0) * probability) / 100,
                         )}
                       </span>
                     </div>
@@ -762,18 +799,18 @@ const DealDetail = () => {
                           {/* dot */}
                           <div
                             className={`
-                              relative z-10 w-8 h-8 rounded-full border-2 flex items-center justify-center
-                              transition-all flex-shrink-0 mt-4
-                              ${
-                                isFirst
-                                  ? "border-blue-500 bg-blue-500 shadow-lg shadow-blue-200"
-                                  : isWon
-                                  ? "border-green-500 bg-green-500"
-                                  : isLost
-                                  ? "border-red-500 bg-red-500"
-                                  : "border-gray-300 bg-white group-hover:border-blue-400"
-                              }
-                            `}
+                                relative z-10 w-8 h-8 rounded-full border-2 flex items-center justify-center
+                                transition-all flex-shrink-0 mt-4
+                                ${
+                                  isFirst
+                                    ? "border-blue-500 bg-blue-500 shadow-lg shadow-blue-200"
+                                    : isWon
+                                      ? "border-green-500 bg-green-500"
+                                      : isLost
+                                        ? "border-red-500 bg-red-500"
+                                        : "border-gray-300 bg-white group-hover:border-blue-400"
+                                }
+                              `}
                           >
                             {isFirst ? (
                               <StarSolid className="w-3.5 h-3.5 text-white" />
@@ -789,13 +826,13 @@ const DealDetail = () => {
                           {/* content card */}
                           <div
                             className={`
-                              flex-1 p-4 mb-2 rounded-xl border transition-all
-                              ${
-                                isFirst
-                                  ? "bg-blue-50/50 border-blue-100 shadow-sm"
-                                  : "bg-white border-gray-100 hover:shadow-sm hover:border-gray-200"
-                              }
-                            `}
+                                flex-1 p-4 mb-2 rounded-xl border transition-all
+                                ${
+                                  isFirst
+                                    ? "bg-blue-50/50 border-blue-100 shadow-sm"
+                                    : "bg-white border-gray-100 hover:shadow-sm hover:border-gray-200"
+                                }
+                              `}
                           >
                             <div className="flex items-center justify-between flex-wrap gap-2">
                               <div className="flex items-center gap-2">
@@ -941,11 +978,25 @@ const DealDetail = () => {
           )}
         </div>
       </div>
+      {/* SEND EMAIL MODAL */}
+      {showSendEmail && (
+        <SendEmailModal deal={deal} onClose={() => setShowSendEmail(false)} />
+      )}
+
+      {/* EMAIL TEMPLATE MANAGER */}
+      {showTemplates && (
+        <EmailTemplateManager onClose={() => setShowTemplates(false)} />
+      )}
+
+      {/* EMAIL LOGS */}
+      {showEmailLogs && (
+        <EmailLogs dealId={deal.id} onClose={() => setShowEmailLogs(false)} />
+      )}
     </div>
   );
 };
-
 export default DealDetail;
+
 // import { useEffect, useState } from "react";
 // import { useDispatch, useSelector } from "react-redux";
 // import { useParams, useNavigate, Link } from "react-router-dom";

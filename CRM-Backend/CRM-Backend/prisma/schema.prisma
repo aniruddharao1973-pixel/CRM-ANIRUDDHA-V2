@@ -24,12 +24,14 @@ model User {
   createdDeals     Deal[]    @relation("DealCreatedBy")
   modifiedDeals    Deal[]    @relation("DealModifiedBy")
 
-  tasks              Task[] // tasks owned by the user
-  reminders          Reminder[]
-  notifications      Notification[]
-  createdTasks       Task[]             @relation("TaskCreatedBy")
-  modifiedTasks      Task[]             @relation("TaskModifiedBy")
-  dealStageHistories DealStageHistory[] @relation("StageChangedBy")
+  tasks                 Task[] // tasks owned by the user
+  reminders             Reminder[]
+  notifications         Notification[]
+  createdTasks          Task[]             @relation("TaskCreatedBy")
+  modifiedTasks         Task[]             @relation("TaskModifiedBy")
+  dealStageHistories    DealStageHistory[] @relation("StageChangedBy")
+  sentEmails            EmailLog[]
+  createdEmailTemplates EmailTemplate[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -76,10 +78,11 @@ model Account {
   shippingPincode String?
   shippingCountry String?
 
-  owner    User      @relation(fields: [accountOwnerId], references: [id])
+  owner    User       @relation(fields: [accountOwnerId], references: [id])
   contacts Contact[]
   deals    Deal[]
   tasks    Task[]
+  emails   EmailLog[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -141,8 +144,9 @@ model Contact {
   modifiedById String
   modifiedBy   User   @relation("ContactModifiedBy", fields: [modifiedById], references: [id])
 
-  deals Deal[]
-  tasks Task[]
+  deals  Deal[]
+  tasks  Task[]
+  emails EmailLog[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -194,11 +198,11 @@ model Deal {
   modifiedById String
   modifiedBy   User   @relation("DealModifiedBy", fields: [modifiedById], references: [id])
 
-  tasks Task[]
+  tasks       Task[]
+  emails      EmailLog[]
   // 🔐 Deal Risk Analytics (NEW)
   risk        DealRisk?
   riskHistory DealRiskHistory[]
-
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -251,6 +255,31 @@ enum RiskLevel {
   HIGH
   CRITICAL
 }
+
+enum EmailStatus {
+  DRAFT
+  QUEUED
+  SENT
+  FAILED
+}
+
+enum EmailProvider {
+  SMTP
+  OUTLOOK
+}
+
+enum EmailDirection {
+  OUTBOUND
+  INBOUND
+}
+
+enum EmailFolder {
+  INBOX
+  SENT
+  DRAFT
+  ARCHIVED
+}
+
 enum LeadSource {
   WEB
   PHONE_INQUIRY
@@ -262,6 +291,16 @@ enum LeadSource {
   SOCIAL_MEDIA
   EMAIL_CAMPAIGN
   PURCHASED_LIST
+  OTHER
+}
+
+enum TemplateCategory {
+  PROPOSAL
+  FOLLOW_UP
+  QUOTATION
+  MEETING
+  NEGOTIATION
+  CLOSING
   OTHER
 }
 
@@ -390,30 +429,31 @@ model Notification {
 }
 
 model DealRisk {
-  id        String   @id @default(uuid())
+  id String @id @default(uuid())
 
-  dealId    String   @unique
-  deal      Deal     @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  dealId String @unique
+  deal   Deal   @relation(fields: [dealId], references: [id], onDelete: Cascade)
 
-  score     Int      // 0–100 risk score
+  score     Int // 0–100 risk score
   riskLevel RiskLevel
 
   // Explainability layer
-  factors   Json     // { daysInStage: 12, lastActivityDays: 5, probability: 40 }
+  factors Json // { daysInStage: 12, lastActivityDays: 5, probability: 40 }
 
   // Playbook actions
-  playbook  Json     // ["Call decision maker", "Send revised quote"]
+  playbook Json // ["Call decision maker", "Send revised quote"]
 
   lastCalculatedAt DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
   @@index([riskLevel])
 }
-model DealRiskHistory {
-  id        String   @id @default(uuid())
 
-  dealId    String
-  deal      Deal     @relation(fields: [dealId], references: [id], onDelete: Cascade)
+model DealRiskHistory {
+  id String @id @default(uuid())
+
+  dealId String
+  deal   Deal   @relation(fields: [dealId], references: [id], onDelete: Cascade)
 
   score     Int
   riskLevel RiskLevel
@@ -423,4 +463,95 @@ model DealRiskHistory {
 
   @@index([dealId])
   @@index([createdAt])
+}
+
+model EmailTemplate {
+  id String @id @default(uuid())
+
+  name    String
+  subject String
+  body    String @db.Text
+
+  category TemplateCategory?
+  isActive Boolean           @default(true)
+
+  createdById String
+  createdBy   User   @relation(fields: [createdById], references: [id])
+
+  emails EmailLog[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([name])
+  @@index([category])
+}
+
+model EmailLog {
+  id String @id @default(uuid())
+
+  toEmail   String
+  ccEmails  String?
+  bccEmails String?
+
+  subject String
+  body    String @db.Text
+
+  status   EmailStatus    @default(SENT)
+  provider EmailProvider?
+
+  direction EmailDirection @default(OUTBOUND)
+  folder    EmailFolder    @default(SENT)
+
+  messageId String?
+  threadId  String?
+  inReplyTo String?
+
+  templateId String?
+  template   EmailTemplate? @relation(fields: [templateId], references: [id])
+
+  dealId String?
+  deal   Deal?   @relation(fields: [dealId], references: [id], onDelete: SetNull)
+
+  contactId String?
+  contact   Contact? @relation(fields: [contactId], references: [id], onDelete: SetNull)
+
+  accountId String?
+  account   Account? @relation(fields: [accountId], references: [id], onDelete: SetNull)
+
+  sentById String
+  sentBy   User   @relation(fields: [sentById], references: [id])
+
+  opened  Boolean @default(false)
+  replied Boolean @default(false)
+  clicked Boolean @default(false)
+
+  attachments EmailAttachment[] @relation("EmailAttachments")
+
+  sentAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([dealId])
+  @@index([contactId])
+  @@index([accountId])
+  @@index([sentById])
+  @@index([templateId])
+  @@index([threadId])
+  @@index([toEmail])
+  @@index([subject])
+}
+
+model EmailAttachment {
+  id String @id @default(uuid())
+
+  fileName String
+  fileUrl  String
+  fileSize Int?
+
+  emailId String
+  email   EmailLog @relation("EmailAttachments", fields: [emailId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([emailId])
 }

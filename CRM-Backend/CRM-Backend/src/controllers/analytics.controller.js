@@ -1245,7 +1245,7 @@
 // src\controllers\analytics.controller.js
 import prisma from "../utils/prisma.js";
 import { asyncHandler } from "../utils/ApiError.js";
-import { getDealPriority } from "../services/analytics/dealPriority.service.js";  
+import { getDealPriority } from "../services/analytics/dealPriority.service.js";
 
 /* ============================================================
    DASHBOARD OVERVIEW (Clean Operational Version)
@@ -1271,7 +1271,12 @@ export const getDashboardAnalytics = asyncHandler(async (req, res) => {
     prisma.deal.count({
       where: {
         stage: {
-          notIn: ["CLOSED_WON", "CLOSED_LOST", "CLOSED_LOST_TO_COMPETITION"],
+          notIn: [
+            "CLOSED_WON",
+            "CLOSED_LOST",
+            "CLOSED_LOST_TO_COMPETITION",
+            "REGRETTED",
+          ],
         },
       },
     }),
@@ -1282,7 +1287,9 @@ export const getDashboardAnalytics = asyncHandler(async (req, res) => {
 
     prisma.deal.count({
       where: {
-        stage: { in: ["CLOSED_LOST", "CLOSED_LOST_TO_COMPETITION"] },
+        stage: {
+          in: ["CLOSED_LOST", "CLOSED_LOST_TO_COMPETITION", "REGRETTED"],
+        },
       },
     }),
 
@@ -1302,7 +1309,12 @@ export const getDashboardAnalytics = asyncHandler(async (req, res) => {
     where: {
       closingDate: { gte: startOfMonth, lte: endOfMonth },
       stage: {
-        notIn: ["CLOSED_WON", "CLOSED_LOST", "CLOSED_LOST_TO_COMPETITION"],
+        notIn: [
+          "CLOSED_WON",
+          "CLOSED_LOST",
+          "CLOSED_LOST_TO_COMPETITION",
+          "REGRETTED",
+        ],
       },
     },
     include: {
@@ -1898,6 +1910,13 @@ export const getStageDeals = asyncHandler(async (req, res) => {
     },
   });
 
+  if (!deals.length) {
+    return res.json({
+      success: true,
+      data: [],
+    });
+  }
+
   // 🔥 calculate avg days for this stage
   const avgDays =
     deals.reduce((sum, deal) => {
@@ -1956,7 +1975,7 @@ export const getKpiMetrics = asyncHandler(async (req, res) => {
   const lostDeals = await prisma.deal.count({
     where: {
       stage: {
-        in: ["CLOSED_LOST", "CLOSED_LOST_TO_COMPETITION"],
+        in: ["CLOSED_LOST", "CLOSED_LOST_TO_COMPETITION", "REGRETTED"],
       },
     },
   });
@@ -2000,7 +2019,7 @@ export const getKpiMetrics = asyncHandler(async (req, res) => {
     _sum: { amount: true },
     where: {
       stage: {
-        in: ["CLOSED_LOST", "CLOSED_LOST_TO_COMPETITION"],
+        in: ["CLOSED_LOST", "CLOSED_LOST_TO_COMPETITION", "REGRETTED"],
       },
     },
   });

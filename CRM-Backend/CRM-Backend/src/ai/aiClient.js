@@ -43,13 +43,13 @@ export async function warmUpModel() {
 /* ─────────────────────────────────────────────
    🤖 Generate AI Response
 ───────────────────────────────────────────── */
-export async function generateAIResponse(prompt) {
+export async function generateAIResponse(messages) {
   try {
     const res = await axios.post(
       SARVAM_API_URL,
       {
         model: SARVAM_MODEL,
-        messages: [{ role: "user", content: prompt }],
+        messages, // now accepts structured messages
         max_tokens: 600,
         temperature: 0.3,
       },
@@ -64,7 +64,6 @@ export async function generateAIResponse(prompt) {
 
     return res.data?.choices?.[0]?.message?.content?.trim() || "";
   } catch (err) {
-    // Minimal but meaningful error logging
     if (err.response?.status === 401) {
       console.error("Sarvam API unauthorized — check SARVAM_API_KEY");
     } else if (err.response?.status === 429) {

@@ -542,18 +542,15 @@
 // export default DealList;
 
 // src/features/deals/DealList.jsx
-
 import { useEffect, useState, useMemo } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { fetchDeals, deleteDeal } from "./dealSlice";
-import {
-  STAGE_COLORS,
-  formatDate,
-  formatLabel,
-} from "../../constants";
+import { STAGE_COLORS, formatDate, formatLabel } from "../../constants";
 
 import toast from "react-hot-toast";
+import * as XLSX from "xlsx";
+import { saveAs } from "file-saver";
 import {
   PlusIcon,
   EyeIcon,
@@ -571,6 +568,7 @@ import {
   BarsArrowDownIcon,
   BarsArrowUpIcon,
   CheckIcon,
+  ArrowDownTrayIcon,
 } from "@heroicons/react/24/outline";
 import { BriefcaseIcon } from "@heroicons/react/24/solid";
 
@@ -611,9 +609,13 @@ const SortDropdown = ({ isOpen, onClose, sortConfig, onSortChange }) => {
         {/* Header */}
         <div className="px-4 py-3 border-b border-gray-100 bg-gray-50">
           <div className="flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-gray-900">Sort Options</h3>
+            <h3 className="text-sm font-semibold text-gray-900">
+              Sort Options
+            </h3>
             <button
-              onClick={() => onSortChange({ column: "dealLogId", order: "desc" })}
+              onClick={() =>
+                onSortChange({ column: "dealLogId", order: "desc" })
+              }
               className="text-xs text-blue-600 hover:text-blue-700 font-medium"
             >
               Reset Default
@@ -633,9 +635,10 @@ const SortDropdown = ({ isOpen, onClose, sortConfig, onSortChange }) => {
                 onClick={() => onSortChange({ ...sortConfig, column: col.key })}
                 className={`
                   w-full flex items-center justify-between px-3 py-2.5 text-sm rounded-lg transition-all
-                  ${sortConfig.column === col.key
-                    ? "bg-blue-50 text-blue-700 font-medium"
-                    : "text-gray-700 hover:bg-gray-50"
+                  ${
+                    sortConfig.column === col.key
+                      ? "bg-blue-50 text-blue-700 font-medium"
+                      : "text-gray-700 hover:bg-gray-50"
                   }
                 `}
               >
@@ -658,9 +661,10 @@ const SortDropdown = ({ isOpen, onClose, sortConfig, onSortChange }) => {
               onClick={() => onSortChange({ ...sortConfig, order: "asc" })}
               className={`
                 flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium rounded-lg border-2 transition-all
-                ${sortConfig.order === "asc"
-                  ? "bg-blue-600 text-white border-blue-600 shadow-sm"
-                  : "bg-white text-gray-700 border-gray-200 hover:border-gray-300 hover:bg-gray-50"
+                ${
+                  sortConfig.order === "asc"
+                    ? "bg-blue-600 text-white border-blue-600 shadow-sm"
+                    : "bg-white text-gray-700 border-gray-200 hover:border-gray-300 hover:bg-gray-50"
                 }
               `}
             >
@@ -671,9 +675,10 @@ const SortDropdown = ({ isOpen, onClose, sortConfig, onSortChange }) => {
               onClick={() => onSortChange({ ...sortConfig, order: "desc" })}
               className={`
                 flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium rounded-lg border-2 transition-all
-                ${sortConfig.order === "desc"
-                  ? "bg-blue-600 text-white border-blue-600 shadow-sm"
-                  : "bg-white text-gray-700 border-gray-200 hover:border-gray-300 hover:bg-gray-50"
+                ${
+                  sortConfig.order === "desc"
+                    ? "bg-blue-600 text-white border-blue-600 shadow-sm"
+                    : "bg-white text-gray-700 border-gray-200 hover:border-gray-300 hover:bg-gray-50"
                 }
               `}
             >
@@ -698,7 +703,13 @@ const SortDropdown = ({ isOpen, onClose, sortConfig, onSortChange }) => {
 };
 
 // Sortable Column Header Component
-const SortableHeader = ({ label, columnKey, sortConfig, onSort, className = "" }) => {
+const SortableHeader = ({
+  label,
+  columnKey,
+  sortConfig,
+  onSort,
+  className = "",
+}) => {
   const isActive = sortConfig.column === columnKey;
 
   return (
@@ -740,6 +751,8 @@ const DealList = () => {
 
   const [page, setPage] = useState(1);
 
+  const [showExportDropdown, setShowExportDropdown] = useState(false);
+
   // Sort state - default to dealLogId descending (newest first)
   const [sortConfig, setSortConfig] = useState({
     column: "dealLogId",
@@ -761,7 +774,7 @@ const DealList = () => {
         limit: 10,
         sortBy: sortConfig.column,
         sortOrder: sortConfig.order,
-      })
+      }),
     );
   }, [dispatch, page, sortConfig]);
 
@@ -789,12 +802,14 @@ const DealList = () => {
 
         case "accountName":
           comparison = (a.account?.accountName || "").localeCompare(
-            b.account?.accountName || ""
+            b.account?.accountName || "",
           );
           break;
 
         case "productGroup":
-          comparison = (a.productGroup || "").localeCompare(b.productGroup || "");
+          comparison = (a.productGroup || "").localeCompare(
+            b.productGroup || "",
+          );
           break;
 
         case "stage":
@@ -803,7 +818,7 @@ const DealList = () => {
 
         case "personInCharge":
           comparison = (a.personInCharge || "").localeCompare(
-            b.personInCharge || ""
+            b.personInCharge || "",
           );
           break;
 
@@ -842,7 +857,8 @@ const DealList = () => {
   const handleColumnSort = (columnKey) => {
     setSortConfig((prev) => ({
       column: columnKey,
-      order: prev.column === columnKey && prev.order === "desc" ? "asc" : "desc",
+      order:
+        prev.column === columnKey && prev.order === "desc" ? "asc" : "desc",
     }));
     setPage(1);
   };
@@ -857,7 +873,56 @@ const DealList = () => {
     setPage(1);
   };
 
-  const isDefaultSort = sortConfig.column === "dealLogId" && sortConfig.order === "desc";
+  const prepareExportData = () => {
+    return sortedDeals.map((deal) => ({
+      "Deal Log ID": deal.dealLogId,
+      "Logged On": formatDate(deal.createdAt),
+      "Deal Name": deal.dealName,
+      "Account Name": deal.account?.accountName || "",
+      "Product Group": deal.productGroup || "",
+      Stage: formatLabel(deal.stage),
+      "Person In Charge": deal.personInCharge || "",
+      Weightage: deal.weightage || "",
+      "Closing Date": formatDate(deal.closingDate),
+    }));
+  };
+
+  const exportCSV = () => {
+    const data = prepareExportData();
+
+    const worksheet = XLSX.utils.json_to_sheet(data);
+    const csv = XLSX.utils.sheet_to_csv(worksheet);
+
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    saveAs(blob, `deals_export_${Date.now()}.csv`);
+
+    setShowExportDropdown(false);
+  };
+
+  const exportExcel = () => {
+    const data = prepareExportData();
+
+    const worksheet = XLSX.utils.json_to_sheet(data);
+    const workbook = XLSX.utils.book_new();
+
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Deals");
+
+    const excelBuffer = XLSX.write(workbook, {
+      bookType: "xlsx",
+      type: "array",
+    });
+
+    const blob = new Blob([excelBuffer], {
+      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8",
+    });
+
+    saveAs(blob, `deals_export_${Date.now()}.xlsx`);
+
+    setShowExportDropdown(false);
+  };
+
+  const isDefaultSort =
+    sortConfig.column === "dealLogId" && sortConfig.order === "desc";
 
   const getCurrentSortLabel = () => {
     const col = SORT_COLUMNS.find((c) => c.key === sortConfig.column);
@@ -957,15 +1022,51 @@ const DealList = () => {
 
           {/* Sort Actions */}
           <div className="flex items-center gap-2">
+            {/* EXPORT BUTTON */}
+            <div className="relative">
+              <button
+                onClick={() => setShowExportDropdown(!showExportDropdown)}
+                className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium bg-white text-gray-700 border-2 border-gray-200 rounded-lg hover:bg-gray-50 hover:border-gray-300 transition-all"
+              >
+                <ArrowDownTrayIcon className="w-5 h-5" />
+                Export
+              </button>
+
+              {showExportDropdown && (
+                <>
+                  <div
+                    className="fixed inset-0 z-40"
+                    onClick={() => setShowExportDropdown(false)}
+                  />
+
+                  <div className="absolute right-0 mt-2 w-40 bg-white border border-gray-200 rounded-lg shadow-lg z-50 overflow-hidden">
+                    <button
+                      onClick={exportExcel}
+                      className="block w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50"
+                    >
+                      Export as Excel
+                    </button>
+
+                    <button
+                      onClick={exportCSV}
+                      className="block w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50"
+                    >
+                      Export as CSV
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
             {/* Sort Dropdown Button */}
             <div className="relative">
               <button
                 onClick={() => setShowSortDropdown(!showSortDropdown)}
                 className={`
                   inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-lg border-2 transition-all
-                  ${showSortDropdown || !isDefaultSort
-                    ? "bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100"
-                    : "bg-white text-gray-700 border-gray-200 hover:bg-gray-50 hover:border-gray-300"
+                  ${
+                    showSortDropdown || !isDefaultSort
+                      ? "bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100"
+                      : "bg-white text-gray-700 border-gray-200 hover:bg-gray-50 hover:border-gray-300"
                   }
                 `}
               >

@@ -684,7 +684,9 @@ export function buildEmailTemplatePrompt({
 
   const purposeGuide =
     PURPOSE_GUIDE[normalizedPurpose] ||
-    "Write a professional CRM sales email template.";
+    `Write an email whose purpose is: "${purpose}". 
+The email must clearly reflect this intent. 
+Do not default to sales outreach, proposals, or follow-ups unless the purpose explicitly indicates that.`;
 
   const prompt = `
 You are an expert B2B CRM email template generator.

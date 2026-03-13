@@ -28,6 +28,7 @@ EMAIL LOGS
 =====================================================
 */
 router.get("/logs", protect, emailController.getEmailLogs);
+router.delete("/logs/:id", protect, emailController.deleteEmailLog);
 
 /*
 =====================================================

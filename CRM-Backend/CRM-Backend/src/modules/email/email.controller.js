@@ -448,11 +448,130 @@ GENERATE EMAIL TEMPLATE USING AI
 =====================================================
 */
 
+// export const generateTemplateAI = async (req, res) => {
+//   try {
+//     // const { purpose, tone, category, recipient, length } = req.body;
+
+//     console.log("🤖 [EMAIL CTRL] AI Template Request");
+
+//     /* ─────────────────────────────────────────────
+//        BASIC VALIDATION
+//     ───────────────────────────────────────────── */
+
+//     if (!purpose) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "Purpose is required for AI template generation",
+//       });
+//     }
+
+//     /* ─────────────────────────────────────────────
+//        ALLOWED PURPOSE VALUES
+//     ───────────────────────────────────────────── */
+
+//     const allowedPurposes = [
+//       "cold outreach",
+//       "follow up",
+//       "proposal submission",
+//       "meeting request",
+//       "negotiation",
+//       "deal closing",
+//       "re-engagement",
+//       "thank you",
+
+//       // campaign purposes
+//       "promotion",
+//       "festival greeting",
+//       "newsletter",
+//       "product update",
+//       "engagement",
+//       "notification",
+//       "event invitation",
+//     ];
+
+//     const { purpose, customPurpose, tone, category, recipient, length } =
+//       req.body;
+
+//     let finalPurpose = purpose;
+
+//     /*
+// ────────────────────────────
+// CUSTOM PURPOSE SUPPORT
+// ────────────────────────────
+// */
+
+//     if (purpose && purpose.toLowerCase() === "custom") {
+//       if (!customPurpose || !customPurpose.trim()) {
+//         return res.status(400).json({
+//           success: false,
+//           message: "Custom purpose text is required",
+//         });
+//       }
+
+//       finalPurpose = customPurpose.trim();
+//     } else if (purpose && !allowedPurposes.includes(purpose.toLowerCase())) {
+
+//     /*
+// ────────────────────────────
+// STANDARD PURPOSE VALIDATION
+// ────────────────────────────
+// */
+//       console.warn("⚠️ Invalid AI purpose:", purpose);
+
+//       return res.status(400).json({
+//         success: false,
+//         message: "Invalid email purpose",
+//       });
+//     }
+
+//     /*
+// ────────────────────────────
+// PASS FINAL PURPOSE TO AI
+// ────────────────────────────
+// */
+
+//     req.body.purpose = finalPurpose;
+
+//     /* ─────────────────────────────────────────────
+//        LENGTH VALIDATION
+//     ───────────────────────────────────────────── */
+
+//     const allowedLengths = ["short", "medium", "long"];
+
+//     if (length && !allowedLengths.includes(length.toLowerCase())) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "Invalid email length",
+//       });
+//     }
+
+//     /* ─────────────────────────────────────────────
+//        FORWARD TO AI CONTROLLER
+//     ───────────────────────────────────────────── */
+
+//     return generateEmailTemplateAI(req, res);
+//   } catch (error) {
+//     console.error("❌ [EMAIL CTRL] AI Template Error:", error);
+
+//     return res.status(500).json({
+//       success: false,
+//       message: "AI template generation failed",
+//     });
+//   }
+// };
+
+/*
+=====================================================
+GENERATE EMAIL TEMPLATE USING AI
+=====================================================
+*/
+
 export const generateTemplateAI = async (req, res) => {
   try {
-    const { purpose, tone, category, recipient, length } = req.body;
-
     console.log("🤖 [EMAIL CTRL] AI Template Request");
+
+    const { purpose, customPurpose, tone, category, recipient, length } =
+      req.body;
 
     /* ─────────────────────────────────────────────
        BASIC VALIDATION
@@ -489,7 +608,29 @@ export const generateTemplateAI = async (req, res) => {
       "event invitation",
     ];
 
-    if (purpose && !allowedPurposes.includes(purpose.toLowerCase())) {
+    let finalPurpose = purpose;
+
+    /*
+    ────────────────────────────
+    CUSTOM PURPOSE SUPPORT
+    ────────────────────────────
+    */
+
+    if (purpose.toLowerCase() === "custom") {
+      if (!customPurpose || !customPurpose.trim()) {
+        return res.status(400).json({
+          success: false,
+          message: "Custom purpose text is required",
+        });
+      }
+
+      finalPurpose = customPurpose.trim();
+    } else if (!allowedPurposes.includes(purpose.toLowerCase())) {
+      /*
+    ────────────────────────────
+    STANDARD PURPOSE VALIDATION
+    ────────────────────────────
+    */
       console.warn("⚠️ Invalid AI purpose:", purpose);
 
       return res.status(400).json({
@@ -497,6 +638,14 @@ export const generateTemplateAI = async (req, res) => {
         message: "Invalid email purpose",
       });
     }
+
+    /*
+    ────────────────────────────
+    PASS FINAL PURPOSE TO AI
+    ────────────────────────────
+    */
+
+    req.body.purpose = finalPurpose;
 
     /* ─────────────────────────────────────────────
        LENGTH VALIDATION
@@ -522,6 +671,45 @@ export const generateTemplateAI = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "AI template generation failed",
+    });
+  }
+};
+
+/*
+=====================================================
+DELETE EMAIL LOG (EMAIL HISTORY)
+=====================================================
+*/
+
+export const deleteEmailLog = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const email = await prisma.emailLog.findUnique({
+      where: { id },
+    });
+
+    if (!email) {
+      return res.status(404).json({
+        success: false,
+        message: "Email not found",
+      });
+    }
+
+    await prisma.emailLog.delete({
+      where: { id },
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Email history deleted successfully",
+    });
+  } catch (error) {
+    console.error("Delete Email Log Error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Failed to delete email history",
     });
   }
 };

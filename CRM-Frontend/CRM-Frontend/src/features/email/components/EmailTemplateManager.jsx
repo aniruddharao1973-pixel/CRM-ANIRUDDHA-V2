@@ -1526,35 +1526,84 @@ const EmailTemplateManager = ({ onClose }) => {
     }
   };
 
+  // const generateTemplateWithAI = async () => {
+  //   try {
+  //     const finalPurpose =
+  //       aiPurpose === "custom" ? customPurpose.trim() : aiPurpose?.trim();
+
+  //     if (!finalPurpose) {
+  //       alert("Please select or enter an email purpose");
+  //       return;
+  //     }
+
+  //     const result = await dispatch(
+  //       generateEmailTemplateAI({
+  //         purpose: finalPurpose,
+  //         tone: aiTone,
+  //         recipient: aiRecipient,
+  //         length: aiLength,
+  //         category: "GENERAL",
+  //       }),
+  //     ).unwrap();
+
+  //     if (result) {
+  //       setName(
+  //         result.name ||
+  //           `${(aiPurpose || "Email").replace(/\b\w/g, (l) => l.toUpperCase())} Template`,
+  //       );
+  //       setSubject(result.subject || "");
+  //       setBody(result.body || "");
+  //       setActiveTab("editor");
+  //       setShowAIWizard(false);
+  //       setAiPurpose("");
+  //       setCustomPurpose("");
+  //       setAiTone("professional");
+  //       setAiRecipient("client");
+  //       setAiLength("medium");
+  //     }
+  //   } catch (err) {
+  //     console.error("AI template generation failed:", err);
+  //     alert("AI failed to generate template");
+  //   }
+  // };
+
   const generateTemplateWithAI = async () => {
     try {
-      const finalPurpose =
-        aiPurpose === "custom" ? customPurpose.trim() : aiPurpose?.trim();
-
-      if (!finalPurpose) {
-        alert("Please select or enter an email purpose");
+      if (!aiPurpose) {
+        alert("Please select an email purpose");
         return;
       }
 
-      const result = await dispatch(
-        generateEmailTemplateAI({
-          purpose: finalPurpose,
-          tone: aiTone,
-          recipient: aiRecipient,
-          length: aiLength,
-          category: "GENERAL",
-        }),
-      ).unwrap();
+      if (aiPurpose === "custom" && !customPurpose.trim()) {
+        alert("Please enter a custom email purpose");
+        return;
+      }
+
+      const payload = {
+        purpose: aiPurpose,
+        customPurpose: aiPurpose === "custom" ? customPurpose.trim() : "",
+        tone: aiTone,
+        recipient: aiRecipient,
+        length: aiLength,
+        category: "GENERAL",
+      };
+
+      const result = await dispatch(generateEmailTemplateAI(payload)).unwrap();
 
       if (result) {
         setName(
           result.name ||
-            `${(aiPurpose || "Email").replace(/\b\w/g, (l) => l.toUpperCase())} Template`,
+            `${(aiPurpose || "Email").replace(/\b\w/g, (l) =>
+              l.toUpperCase(),
+            )} Template`,
         );
+
         setSubject(result.subject || "");
         setBody(result.body || "");
+
         setActiveTab("editor");
         setShowAIWizard(false);
+
         setAiPurpose("");
         setCustomPurpose("");
         setAiTone("professional");

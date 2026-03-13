@@ -187,6 +187,26 @@ export const fetchCampaignStatus = createAsyncThunk(
     }
   },
 );
+
+/*
+=====================================================
+DELETE EMAIL LOG
+=====================================================
+*/
+export const deleteEmailLog = createAsyncThunk(
+  "email/deleteLog",
+  async (id, { rejectWithValue }) => {
+    try {
+      await API.delete(`${EMAIL_API}/logs/${id}`);
+
+      return { id };
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data?.message || "Failed to delete email log",
+      );
+    }
+  },
+);
 /*
 =====================================================
 INITIAL STATE
@@ -423,6 +443,15 @@ FETCH CAMPAIGN STATUS
       state.campaignTotal = action.payload.total;
       state.campaignSent = action.payload.sent;
       state.campaignFailed = action.payload.failed;
+    });
+
+    /*
+=====================================================
+DELETE EMAIL LOG
+=====================================================
+*/
+    builder.addCase(deleteEmailLog.fulfilled, (state, action) => {
+      state.logs = state.logs.filter((log) => log.id !== action.payload.id);
     });
   },
 });

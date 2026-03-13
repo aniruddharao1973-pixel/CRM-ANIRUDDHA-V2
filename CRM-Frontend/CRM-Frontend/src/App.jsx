@@ -201,7 +201,6 @@
 
 // export default App;
 
-
 // App.jsx
 import { useEffect } from "react";
 import { useSelector } from "react-redux";
@@ -234,6 +233,7 @@ const TaskList = lazy(() => import("./features/tasks/TaskList"));
 const TaskForm = lazy(() => import("./features/tasks/TaskForm"));
 const Users = lazy(() => import("./features/users/Users"));
 const CreateUser = lazy(() => import("./features/users/CreateUser"));
+const EditUser = lazy(() => import("./features/users/EditUser"));
 
 const PageLoader = () => (
   <div className="flex items-center justify-center py-20">
@@ -275,8 +275,7 @@ function App() {
   }
 /> */}
         <Route path="/login" element={<Login />} />
-        
-          
+
         {/* Protected */}
         <Route
           path="/"
@@ -294,7 +293,7 @@ function App() {
               </Suspense>
             }
           />
-           <Route
+          <Route
             path="analytics/advanced"
             element={
               <Suspense fallback={<PageLoader />}>
@@ -336,38 +335,38 @@ function App() {
             }
           />
           {/* USERS – ADMIN ONLY – RIGHT SIDE RENDER */}
-    <Route
-      path="users"
-      element={
-        <AdminRoute>
-          <Suspense fallback={<PageLoader />}>
-            <Users />
-          </Suspense>
-        </AdminRoute>
-      }
-    />
+          <Route
+            path="users"
+            element={
+              <AdminRoute>
+                <Suspense fallback={<PageLoader />}>
+                  <Users />
+                </Suspense>
+              </AdminRoute>
+            }
+          />
 
-    <Route
-      path="users/create"
-      element={
-        <AdminRoute>
-          <Suspense fallback={<PageLoader />}>
-            <CreateUser />
-          </Suspense>
-        </AdminRoute>
-      }
-    />
+          <Route
+            path="users/create"
+            element={
+              <AdminRoute>
+                <Suspense fallback={<PageLoader />}>
+                  <CreateUser />
+                </Suspense>
+              </AdminRoute>
+            }
+          />
 
-    <Route
-      path="users/:id/edit"
-      element={
-        <AdminRoute>
-          <Suspense fallback={<PageLoader />}>
-            <CreateUser />
-          </Suspense>
-        </AdminRoute>
-      }
-    />
+          <Route
+            path="users/:id"
+            element={
+              <AdminRoute>
+                <Suspense fallback={<PageLoader />}>
+                  <EditUser />
+                </Suspense>
+              </AdminRoute>
+            }
+          />
 
           {/* Contacts */}
           <Route

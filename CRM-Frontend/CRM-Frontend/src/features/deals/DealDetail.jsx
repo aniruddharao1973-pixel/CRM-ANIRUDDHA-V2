@@ -103,6 +103,7 @@ import { fetchDeal, updateDeal, clearCurrentDeal } from "./dealSlice";
 import SendEmailModal from "../email/components/SendEmailModal";
 import EmailTemplateManager from "../email/components/EmailTemplateManager";
 import EmailLogs from "../email/components/EmailLogs";
+import { fetchMe } from "../auth/authSlice";
 import {
   STAGE_COLORS,
   PROGRESS_STAGES,
@@ -194,6 +195,24 @@ const InfoRow = ({ icon: Icon, label, children, className = "" }) => (
   </div>
 );
 
+const detectEmailProvider = (email) => {
+  if (!email) return "SMTP";
+
+  const domain = email.split("@")[1]?.toLowerCase();
+
+  if (domain.includes("gmail.com")) return "GOOGLE";
+
+  if (
+    domain.includes("outlook.com") ||
+    domain.includes("hotmail.com") ||
+    domain.includes("live.com")
+  ) {
+    return "MICROSOFT";
+  }
+
+  return "SMTP";
+};
+
 /* ────────────────── Stat Card Component ────────────────── */
 
 const StatCard = ({ icon: Icon, label, value, subtext, color = "blue" }) => {
@@ -231,15 +250,50 @@ const DealDetail = () => {
 
   const { deal, detailLoading } = useSelector((s) => s.deals);
 
-  const [tab, setTab] = useState("overview");
+  const { user } = useSelector((state) => state.auth);
+
+  // console.log("🔍 Logged In User:", user);
+  // console.log("🔍 Email Provider:", user?.emailProvider);
+  // console.log("🔍 Email Access Token:", user?.emailAccessToken);
+
+  const emailProvider = user?.emailProvider || detectEmailProvider(user?.email);
+
+  const [tab, setTab] = useState("overview"); 
   const [updatingStage, setUpdatingStage] = useState(false);
   const [hoveredStage, setHoveredStage] = useState(null);
   const [showSendEmail, setShowSendEmail] = useState(false);
   const [showTemplates, setShowTemplates] = useState(false);
   const [showEmailLogs, setShowEmailLogs] = useState(false);
 
+  const connectGmail = async () => {
+    const res = await fetch("http://localhost:5000/api/email/connect/google", {
+      headers: {
+        Authorization: `Bearer ${localStorage.getItem("token")}`,
+      },
+    });
+
+    const data = await res.json();
+    window.location.href = data.url;
+  };
+
+  const connectOutlook = async () => {
+    const res = await fetch("http://localhost:5000/api/email/connect/outlook", {
+      headers: {
+        Authorization: `Bearer ${localStorage.getItem("token")}`,
+      },
+    });
+
+    const data = await res.json();
+    window.location.href = data.url;
+  };
+
   useEffect(() => {
     dispatch(fetchDeal(id));
+
+    // ⭐ Refresh logged-in user after OAuth redirect
+    console.log("🔄 Refreshing logged-in user after OAuth");
+    dispatch(fetchMe());
+
     return () => dispatch(clearCurrentDeal());
   }, [dispatch, id]);
 
@@ -344,20 +398,64 @@ const DealDetail = () => {
 
           {/* RIGHT SIDE ACTIONS */}
           <div className="flex items-center gap-2">
-            {/* Send Email */}
+            {/* Send Email (always visible) */}
             <button
+              disabled={!user?.emailProvider}
               onClick={() => {
+                if (!user?.emailProvider) {
+                  alert("Please connect your email provider first");
+                  return;
+                }
+
                 if (!deal.contact?.email) {
                   alert("Contact email not available for this deal");
                   return;
                 }
+
                 setShowSendEmail(true);
               }}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium bg-gray-100 hover:bg-gray-200"
+              className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition
+  ${
+    user?.emailProvider
+      ? "bg-gray-100 hover:bg-gray-200 text-gray-700"
+      : "bg-gray-100 text-gray-400 cursor-not-allowed"
+  }`}
             >
               <EnvelopeIcon className="w-4 h-4" />
               Send Email
             </button>
+
+            {/* Connect Email Provider */}
+            {!user?.emailAccessToken && (
+              <>
+                {emailProvider === "GOOGLE" && (
+                  <button
+                    onClick={connectGmail}
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium bg-red-600 text-white hover:bg-red-700"
+                  >
+                    Connect Gmail
+                  </button>
+                )}
+
+                {emailProvider === "MICROSOFT" && (
+                  <button
+                    onClick={connectOutlook}
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium bg-blue-600 text-white hover:bg-blue-700"
+                  >
+                    Connect Outlook
+                  </button>
+                )}
+
+                {emailProvider === "SMTP" && (
+                  <button
+                    onClick={() => navigate("/settings/email")}
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium bg-gray-700 text-white"
+                  >
+                    Configure SMTP
+                  </button>
+                )}
+              </>
+            )}
 
             {/* Email Logs */}
             <button

@@ -84,6 +84,8 @@ FROM "Deal";
 
 NEW INSTALL
 npm install xlsx file-saver
+npm install nodemailer googleapis (BACKEND TERMINAL)
+npm install googleapis
 
 
 model EmailLog {

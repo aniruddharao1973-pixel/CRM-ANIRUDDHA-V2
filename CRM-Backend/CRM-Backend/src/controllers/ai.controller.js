@@ -146,6 +146,7 @@ import {
   buildSalesPrompt,
   buildAdvancedAnalyticsPrompt,
   buildQuickAnalyticsPrompt,
+  buildEmailTemplatePrompt,
   classifyQuestion,
 } from "../ai/promptBuilder.js";
 
@@ -337,6 +338,219 @@ export async function askAnalyticsAI(req, res) {
 
     res.status(503).json({
       message: "Analytics AI temporarily unavailable",
+    });
+  }
+}
+/* ─────────────────────────────────────────────
+   ✉️ AI EMAIL TEMPLATE GENERATOR
+   POST /api/ai/generate-template
+───────────────────────────────────────────── */
+
+// export async function generateEmailTemplateAI(req, res) {
+//   try {
+//     const { purpose, tone, category, recipient, length } = req.body;
+
+//     console.log("✉️ [AI TEMPLATE] Generating template");
+
+//     const messages = buildEmailTemplatePrompt({
+//       purpose,
+//       tone,
+//       category,
+//       recipient,
+//       length,
+//     });
+
+//     const aiText = await generateAIResponse(messages);
+
+//     if (!aiText) {
+//       return res.status(500).json({
+//         success: false,
+//         message: "AI failed to generate template",
+//       });
+//     }
+
+//     /*
+//     ─────────────────────────────────────────────
+//     CLEAN AI RESPONSE
+//     Remove <think> reasoning and extract JSON
+//     ─────────────────────────────────────────────
+//     */
+
+//     let parsed;
+
+//     try {
+//       // Remove <think> blocks
+//       let cleaned = aiText.replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
+
+//       // Extract JSON object
+//       const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
+
+//       if (!jsonMatch) {
+//         throw new Error("No JSON object found in AI response");
+//       }
+
+//       parsed = JSON.parse(jsonMatch[0]);
+//     } catch (err) {
+//       console.error("❌ AI JSON parse failed:", aiText);
+
+//       return res.status(500).json({
+//         success: false,
+//         message: "AI returned invalid format",
+//       });
+//     }
+
+//     /*
+//     ─────────────────────────────────────────────
+//     SUCCESS RESPONSE
+//     ─────────────────────────────────────────────
+//     */
+
+//     console.log("✅ AI Template Generated");
+
+//     res.json({
+//       success: true,
+//       data: {
+//         name: parsed.templateName || "AI Generated Template",
+//         subject: parsed.subject || "",
+//         body: parsed.body || "",
+//       },
+//     });
+//   } catch (err) {
+//     console.error("❌ AI Template Generation Failed:", err.message);
+
+//     res.status(503).json({
+//       success: false,
+//       message: "AI template generation unavailable",
+//     });
+//   }
+// }
+
+/* ─────────────────────────────────────────────
+   ✉️ AI EMAIL TEMPLATE GENERATOR
+   POST /api/ai/generate-template
+───────────────────────────────────────────── */
+
+export async function generateEmailTemplateAI(req, res) {
+  try {
+    const { purpose, tone, category, recipient, length } = req.body;
+
+    console.log("✉️ [AI TEMPLATE] Generating template");
+
+    /* ─────────────────────────────────────────────
+       BUILD PROMPT
+    ───────────────────────────────────────────── */
+
+    const messages = buildEmailTemplatePrompt({
+      purpose,
+      tone,
+      category,
+      recipient,
+      length,
+    });
+
+    /* ─────────────────────────────────────────────
+       CALL AI
+    ───────────────────────────────────────────── */
+
+    const aiText = await generateAIResponse(messages);
+
+    if (!aiText) {
+      console.warn("⚠️ [AI TEMPLATE] Empty AI response");
+
+      return res.status(500).json({
+        success: false,
+        message: "AI failed to generate template",
+      });
+    }
+
+    /*
+    ─────────────────────────────────────────────
+    CLEAN AI RESPONSE
+    Remove reasoning blocks and extract JSON
+    ─────────────────────────────────────────────
+    */
+
+    let parsed;
+
+    try {
+      let cleaned = aiText
+        .replace(/<think>[\s\S]*?<\/think>/gi, "")
+        .replace(/```json/gi, "")
+        .replace(/```/g, "")
+        .trim();
+
+      const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
+
+      if (!jsonMatch) {
+        throw new Error("No JSON object found in AI response");
+      }
+
+      parsed = JSON.parse(jsonMatch[0]);
+    } catch (err) {
+      console.error("❌ [AI TEMPLATE] JSON parse failed");
+      console.error("AI RESPONSE:", aiText);
+
+      return res.status(500).json({
+        success: false,
+        message: "AI returned invalid format",
+      });
+    }
+
+    /*
+    ─────────────────────────────────────────────
+    SANITIZE AI OUTPUT
+    Remove hallucinated placeholders
+    ─────────────────────────────────────────────
+    */
+
+    let body = parsed.body || "";
+
+    body = body
+      .replace(/\[your name\]/gi, "{{user.name}}")
+      .replace(/\[your company\]/gi, "our company")
+      .replace(/\[company name\]/gi, "{{account.accountName}}")
+      .replace(/\[product\]/gi, "{{deal.dealName}}")
+      .replace(/\[key benefit\]/gi, "value")
+      .replace(/\[.*?\]/g, "");
+
+    /*
+    ─────────────────────────────────────────────
+    SECURITY VALIDATION
+    Prevent sensitive data leaks
+    ─────────────────────────────────────────────
+    */
+
+    if (body.includes("@") || body.match(/\+?\d{6,}/)) {
+      console.warn("⚠️ [AI TEMPLATE] Possible sensitive data detected");
+
+      return res.status(500).json({
+        success: false,
+        message: "AI generated unsafe template",
+      });
+    }
+
+    /*
+    ─────────────────────────────────────────────
+    SUCCESS RESPONSE
+    ─────────────────────────────────────────────
+    */
+
+    console.log("✅ [AI TEMPLATE] Template Generated Successfully");
+
+    res.json({
+      success: true,
+      data: {
+        name: parsed.templateName || "AI Generated Template",
+        subject: parsed.subject || "",
+        body: body,
+      },
+    });
+  } catch (err) {
+    console.error("❌ [AI TEMPLATE] Generation Failed:", err.message);
+
+    res.status(503).json({
+      success: false,
+      message: "AI template generation unavailable",
     });
   }
 }

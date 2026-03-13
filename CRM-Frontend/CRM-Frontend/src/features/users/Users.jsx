@@ -61,10 +61,35 @@ const STATUS_STYLES = {
   },
 };
 
+// Detect email provider based on domain
+// const detectEmailProvider = (email) => {
+//   if (!email) return "SMTP";
+
+//   const domain = email.split("@")[1]?.toLowerCase();
+
+//   if (domain.includes("gmail.com")) return "GOOGLE";
+
+//   if (
+//     domain.includes("outlook.com") ||
+//     domain.includes("hotmail.com") ||
+//     domain.includes("live.com")
+//   ) {
+//     return "MICROSOFT";
+//   }
+
+//   return "SMTP";
+// };
+
 export default function Users() {
   const dispatch = useDispatch();
   const navigate = useNavigate();
-  const { users, loading, user: currentUser } = useSelector((state) => state.auth);
+  const {
+    users,
+    loading,
+    user: currentUser,
+  } = useSelector((state) => state.auth);
+  // const emailProvider =
+  //   currentUser?.emailProvider || detectEmailProvider(currentUser?.email);
 
   const [deleteModal, setDeleteModal] = useState({
     open: false,
@@ -90,6 +115,54 @@ export default function Users() {
     }
   };
 
+  // const connectGmail = async () => {
+  //   try {
+  //     const res = await fetch(
+  //       "http://localhost:5000/api/email/connect/google",
+  //       {
+  //         headers: {
+  //           Authorization: `Bearer ${localStorage.getItem("token")}`,
+  //         },
+  //       },
+  //     );
+
+  //     const data = await res.json();
+
+  //     if (!data.url) {
+  //       throw new Error("OAuth URL not returned");
+  //     }
+
+  //     window.location.href = data.url;
+  //   } catch (err) {
+  //     console.error("Google connect failed", err);
+  //     toast.error("Unable to connect Gmail");
+  //   }
+  // };
+
+  const connectOutlook = async () => {
+    try {
+      const res = await fetch(
+        "http://localhost:5000/api/email/connect/outlook",
+        {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+          },
+        },
+      );
+
+      const data = await res.json();
+
+      if (!data.url) {
+        throw new Error("OAuth URL not returned");
+      }
+
+      window.location.href = data.url;
+    } catch (err) {
+      console.error("Outlook connect failed", err);
+      toast.error("Unable to connect Outlook");
+    }
+  };
+
   // Stats calculation
   const totalUsers = users.length;
   const activeUsers = users.filter((u) => u.isActive).length;
@@ -106,13 +179,42 @@ export default function Users() {
             Manage team members and their access levels
           </p>
         </div>
-        <Link
-          to="/users/create"
-          className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-indigo-600 text-white text-sm font-semibold rounded-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition-all duration-200 shadow-sm"
-        >
-          <PlusIcon className="w-5 h-5" />
-          Add User
-        </Link>
+        <div className="flex gap-3">
+          {/* {emailProvider === "GOOGLE" && (
+            <button
+              onClick={connectGmail}
+              className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-red-600 text-white text-sm font-semibold rounded-lg hover:bg-red-700 transition-all duration-200 shadow-sm"
+            >
+              Connect Gmail
+            </button>
+          )} */}
+
+          {/* {emailProvider === "MICROSOFT" && (
+            <button
+              onClick={connectOutlook}
+              className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 transition-all duration-200 shadow-sm"
+            >
+              Connect Outlook
+            </button>
+          )} */}
+{/* 
+          {emailProvider === "SMTP" && (
+            <button
+              onClick={() => navigate("/settings/email")}
+              className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-gray-700 text-white text-sm font-semibold rounded-lg hover:bg-gray-800 transition-all duration-200 shadow-sm"
+            >
+              Configure SMTP
+            </button>
+          )} */}
+
+          <Link
+            to="/users/create"
+            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-indigo-600 text-white text-sm font-semibold rounded-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition-all duration-200 shadow-sm"
+          >
+            <PlusIcon className="w-5 h-5" />
+            Add User
+          </Link>
+        </div>
       </div>
 
       {/* Stats Cards */}
@@ -207,6 +309,9 @@ export default function Users() {
                     <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                       Role
                     </th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                      Email Status
+                    </th>
                     {/* <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                       Status
                     </th> */}
@@ -217,9 +322,12 @@ export default function Users() {
                 </thead>
                 <tbody className="divide-y divide-gray-100">
                   {users.map((user) => {
-                    const roleStyle = ROLE_STYLES[user.role] || ROLE_STYLES.SALES_REP;
+                    const roleStyle =
+                      ROLE_STYLES[user.role] || ROLE_STYLES.SALES_REP;
                     const RoleIcon = roleStyle.icon;
-                    const statusStyle = user.isActive ? STATUS_STYLES.active : STATUS_STYLES.inactive;
+                    const statusStyle = user.isActive
+                      ? STATUS_STYLES.active
+                      : STATUS_STYLES.inactive;
                     const isCurrentUser = currentUser?.id === user.id;
 
                     return (
@@ -276,6 +384,21 @@ export default function Users() {
                           </span>
                         </td>
 
+                        {/* Email Connection Status */}
+                        <td className="px-6 py-4">
+                          {user.emailProvider ? (
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-green-50 text-green-700 ring-1 ring-green-500/20">
+                              <CheckCircleIcon className="w-3.5 h-3.5" />
+                              Connected
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-gray-50 text-gray-600 ring-1 ring-gray-300">
+                              <XCircleIcon className="w-3.5 h-3.5" />
+                              Not Connected
+                            </span>
+                          )}
+                        </td>
+
                         {/* Status */}
                         {/* <td className="px-6 py-4">
                           <span
@@ -310,7 +433,11 @@ export default function Users() {
                                   ? "text-gray-300 cursor-not-allowed"
                                   : "text-gray-500 hover:text-red-600 hover:bg-red-50"
                               }`}
-                              title={isCurrentUser ? "Cannot delete yourself" : "Delete User"}
+                              title={
+                                isCurrentUser
+                                  ? "Cannot delete yourself"
+                                  : "Delete User"
+                              }
                             >
                               <TrashIcon className="w-4 h-4" />
                             </button>
@@ -326,9 +453,12 @@ export default function Users() {
             {/* Mobile Card View */}
             <div className="lg:hidden divide-y divide-gray-100">
               {users.map((user) => {
-                const roleStyle = ROLE_STYLES[user.role] || ROLE_STYLES.SALES_REP;
+                const roleStyle =
+                  ROLE_STYLES[user.role] || ROLE_STYLES.SALES_REP;
                 const RoleIcon = roleStyle.icon;
-                const statusStyle = user.isActive ? STATUS_STYLES.active : STATUS_STYLES.inactive;
+                const statusStyle = user.isActive
+                  ? STATUS_STYLES.active
+                  : STATUS_STYLES.inactive;
                 const isCurrentUser = currentUser?.id === user.id;
 
                 return (
@@ -355,7 +485,9 @@ export default function Users() {
                               </span>
                             )}
                           </div>
-                          <p className="text-xs text-gray-500 mt-0.5">{user.email}</p>
+                          <p className="text-xs text-gray-500 mt-0.5">
+                            {user.email}
+                          </p>
                         </div>
                       </div>
                       <span
@@ -371,7 +503,9 @@ export default function Users() {
                       <span
                         className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium ${statusStyle.bg} ${statusStyle.text}`}
                       >
-                        <span className={`w-1.5 h-1.5 rounded-full ${statusStyle.dot}`} />
+                        <span
+                          className={`w-1.5 h-1.5 rounded-full ${statusStyle.dot}`}
+                        />
                         {user.isActive ? "Active" : "Inactive"}
                       </span>
                       <div className="flex items-center gap-1">
@@ -415,7 +549,9 @@ export default function Users() {
             {/* Backdrop */}
             <div
               className="fixed inset-0 bg-black/50 backdrop-blur-sm transition-opacity"
-              onClick={() => setDeleteModal({ open: false, id: null, name: "" })}
+              onClick={() =>
+                setDeleteModal({ open: false, id: null, name: "" })
+              }
             />
 
             {/* Modal */}
@@ -432,14 +568,16 @@ export default function Users() {
                   <span className="font-semibold text-gray-700">
                     "{deleteModal.name}"
                   </span>
-                  ? This will permanently remove their account and all associated data.
-                  This action cannot be undone.
+                  ? This will permanently remove their account and all
+                  associated data. This action cannot be undone.
                 </p>
               </div>
 
               <div className="flex gap-3">
                 <button
-                  onClick={() => setDeleteModal({ open: false, id: null, name: "" })}
+                  onClick={() =>
+                    setDeleteModal({ open: false, id: null, name: "" })
+                  }
                   disabled={deleting}
                   className="flex-1 px-4 py-2.5 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors disabled:opacity-50"
                 >

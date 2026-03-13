@@ -1,6 +1,453 @@
-// CRM-Backend/src/modules/email/email.service.js
+// // CRM-Backend/src/modules/email/email.service.js
 
+// import prisma from "../../utils/prisma.js";
+// import { parseTemplate } from "./templateParser.js";
+// import { sendGmail } from "./emailProvider.js";
+
+// /*
+// =====================================================
+// CREATE EMAIL TEMPLATE
+// =====================================================
+// */
+// export const createTemplate = async (data, userId) => {
+//   const template = await prisma.emailTemplate.create({
+//     data: {
+//       name: data.name,
+//       subject: data.subject,
+//       body: data.body,
+//       category: data.category || null,
+//       createdById: userId,
+//     },
+//   });
+
+//   return template;
+// };
+
+// /*
+// =====================================================
+// GET ALL EMAIL TEMPLATES
+// =====================================================
+// */
+// export const getTemplates = async () => {
+//   return prisma.emailTemplate.findMany({
+//     where: { isActive: true },
+//     orderBy: { createdAt: "desc" },
+//     select: {
+//       id: true,
+//       name: true,
+//       subject: true,
+//       category: true,
+//       createdAt: true,
+//     },
+//   });
+// };
+
+// /*
+// =====================================================
+// SEND EMAIL
+// =====================================================
+// */
+// export const sendEmail = async (data, userId) => {
+//   let subject = data.subject || "";
+//   let body = data.body || "";
+//   let status = "SENT";
+
+//   /*
+//   TEMPLATE PROCESSING
+//   */
+//   if (data.templateId) {
+//     const template = await prisma.emailTemplate.findUnique({
+//       where: { id: data.templateId },
+//     });
+
+//     if (!template) {
+//       throw new Error("Email template not found");
+//     }
+
+//     subject = parseTemplate(template.subject, data.variables || {});
+//     body = parseTemplate(template.body, data.variables || {});
+//   }
+
+//   /*
+//   SEND EMAIL VIA GMAIL
+//   */
+//   try {
+//     await sendGmail({
+//       to: data.toEmail,
+//       subject,
+//       html: body,
+//     });
+//   } catch (error) {
+//     console.error("Gmail Send Error:", error);
+//     status = "FAILED";
+//   }
+
+//   /*
+//   CREATE EMAIL LOG
+//   */
+//   const email = await prisma.emailLog.create({
+//     data: {
+//       toEmail: data.toEmail,
+//       ccEmails: data.ccEmails || null,
+//       bccEmails: data.bccEmails || null,
+
+//       subject,
+//       body,
+
+//       // FIXED ENUM VALUE
+//       provider: "SMTP",
+
+//       dealId: data.dealId || null,
+//       contactId: data.contactId || null,
+//       accountId: data.accountId || null,
+
+//       threadId: data.threadId || null,
+//       inReplyTo: data.inReplyTo || null,
+
+//       templateId: data.templateId || null,
+
+//       sentById: userId,
+
+//       status,
+//       direction: "OUTBOUND",
+//       folder: "SENT",
+
+//       sentAt: status === "SENT" ? new Date() : null,
+//     },
+
+//     include: {
+//       sentBy: {
+//         select: {
+//           id: true,
+//           name: true,
+//         },
+//       },
+//     },
+//   });
+
+//   /*
+//   ATTACHMENTS SUPPORT
+//   */
+//   if (data.attachments && data.attachments.length > 0) {
+//     const attachmentData = data.attachments.map((file) => ({
+//       emailId: email.id,
+//       fileName: file.fileName,
+//       fileUrl: file.fileUrl,
+//       fileSize: file.fileSize || null,
+//     }));
+
+//     await prisma.emailAttachment.createMany({
+//       data: attachmentData,
+//     });
+//   }
+
+//   return email;
+// };
+
+// /*
+// =====================================================
+// GET EMAIL LOGS
+// =====================================================
+// */
+// export const getEmailLogs = async (filters) => {
+//   const where = {};
+
+//   if (filters.dealId) where.dealId = filters.dealId;
+//   if (filters.contactId) where.contactId = filters.contactId;
+//   if (filters.accountId) where.accountId = filters.accountId;
+//   if (filters.threadId) where.threadId = filters.threadId;
+
+//   return prisma.emailLog.findMany({
+//     where,
+//     orderBy: { createdAt: "desc" },
+//     include: {
+//       sentBy: { select: { id: true, name: true } },
+//       template: { select: { id: true, name: true } },
+//       attachments: true,
+//     },
+//   });
+// };
+
+// ===================================================================================================
+
+// // CRM-Backend/src/modules/email/email.service.js
+// import prisma from "../../utils/prisma.js";
+// import { parseTemplate } from "./templateParser.js";
+// import { sendEmailGateway } from "./emailGateway.js";
+
+// /*
+// =====================================================
+// CREATE EMAIL TEMPLATE
+// =====================================================
+// */
+// export const createTemplate = async (data, userId) => {
+//   try {
+//     console.log("📄 Creating Email Template");
+
+//     const template = await prisma.emailTemplate.create({
+//       data: {
+//         name: data.name,
+//         subject: data.subject,
+//         body: data.body,
+//         category: data.category || null,
+//         createdById: userId,
+//       },
+//     });
+
+//     console.log("✅ Template Created:", template.id);
+
+//     return template;
+//   } catch (error) {
+//     console.error("❌ Template Creation Failed:", error);
+//     throw error;
+//   }
+// };
+
+// /*
+// =====================================================
+// GET EMAIL TEMPLATES
+// =====================================================
+// */
+// export const getTemplates = async () => {
+//   return prisma.emailTemplate.findMany({
+//     where: { isActive: true },
+//     orderBy: { createdAt: "desc" },
+//   });
+// };
+
+// /*
+// =====================================================
+// DETECT EMAIL PROVIDER
+// =====================================================
+// */
+// const detectProvider = (email) => {
+//   const domain = email.split("@")[1]?.toLowerCase();
+
+//   if (!domain) return "SMTP";
+
+//   if (domain.includes("gmail.com")) return "GOOGLE";
+
+//   if (
+//     domain.includes("outlook.com") ||
+//     domain.includes("hotmail.com") ||
+//     domain.includes("live.com")
+//   )
+//     return "MICROSOFT";
+
+//   return "SMTP";
+// };
+
+// /*
+// =====================================================
+// SEND EMAIL
+// =====================================================
+// */
+// export const sendEmail = async (data, userId) => {
+//   let subject = data.subject || "";
+//   let body = data.body || "";
+//   let status = "SENT";
+//   let messageId = null;
+//   let providerUsed = "SMTP";
+
+//   console.log("=====================================================");
+//   console.log("📧 CRM Email Send Started");
+//   console.log("=====================================================");
+
+//   let user;
+
+//   try {
+//     /*
+//     =====================================================
+//     GET USER
+//     =====================================================
+//     */
+
+//     user = await prisma.user.findUnique({
+//       where: { id: userId },
+//     });
+
+//     if (!user) {
+//       throw new Error("User not found");
+//     }
+
+//     const detectedProvider = user.emailProvider || detectProvider(user.email);
+
+//     console.log("👤 Sender:", user.name);
+//     console.log("📤 Sender Email:", user.email);
+//     console.log("📮 Provider:", detectedProvider);
+
+//     /*
+//     =====================================================
+//     VALIDATE PROVIDER
+//     =====================================================
+//     */
+
+//     // if (detectedProvider === "SMTP" && !user.smtpHost) {
+//     //   throw new Error("SMTP not configured for this user");
+//     // }
+
+//     if (detectedProvider === "GOOGLE" && !user.emailAccessToken) {
+//       throw new Error("Gmail not connected for this user");
+//     }
+
+//     if (detectedProvider === "MICROSOFT" && !user.emailAccessToken) {
+//       throw new Error("Outlook not connected for this user");
+//     }
+
+//     /*
+//     =====================================================
+//     TEMPLATE PROCESSING
+//     =====================================================
+//     */
+
+//     if (data.templateId) {
+//       const template = await prisma.emailTemplate.findUnique({
+//         where: { id: data.templateId },
+//       });
+
+//       if (!template) {
+//         throw new Error("Email template not found");
+//       }
+
+//       let variables = {};
+
+//       if (data.dealId) {
+//         const deal = await prisma.deal.findUnique({
+//           where: { id: data.dealId },
+//           include: {
+//             contact: true,
+//             account: true,
+//             owner: true,
+//           },
+//         });
+
+//         variables = {
+//           contactName: deal?.contact?.firstName || "",
+//           dealName: deal?.dealName || "",
+//           accountName: deal?.account?.accountName || "",
+//           salesRep: deal?.owner?.name || "",
+//         };
+//       } else if (data.contactId) {
+//         const contact = await prisma.contact.findUnique({
+//           where: { id: data.contactId },
+//           include: { account: true },
+//         });
+
+//         variables = {
+//           contactName: contact?.firstName || "",
+//           accountName: contact?.account?.accountName || "",
+//         };
+//       }
+
+//       subject = parseTemplate(template.subject, variables);
+//       body = parseTemplate(template.body, variables);
+//     }
+
+//     /*
+//     =====================================================
+//     SEND EMAIL
+//     =====================================================
+//     */
+
+//     providerUsed = detectedProvider;
+
+//     console.log("📨 Routing through Email Gateway");
+
+//     const result = await sendEmailGateway({
+//       userId,
+//       from: user.email,
+//       to: data.toEmail,
+//       subject,
+//       html: body,
+//       provider: detectedProvider,
+//     });
+
+//     messageId = result?.messageId || null;
+
+//     console.log("📨 Email Message ID:", messageId);
+//   } catch (error) {
+//     console.error("❌ Email Send Failed:", error.message);
+//     status = "FAILED";
+//   }
+
+//   /*
+//   =====================================================
+//   STORE EMAIL LOG
+//   =====================================================
+//   */
+
+//   const email = await prisma.emailLog.create({
+//     data: {
+//       fromEmail: user?.email || null,
+//       toEmail: data.toEmail,
+//       ccEmails: data.ccEmails || null,
+//       bccEmails: data.bccEmails || null,
+
+//       subject,
+//       body,
+
+//       provider: providerUsed,
+//       messageId,
+
+//       dealId: data.dealId || null,
+//       contactId: data.contactId || null,
+//       accountId: data.accountId || null,
+
+//       templateId: data.templateId || null,
+
+//       sentById: userId,
+
+//       status,
+//       direction: "OUTBOUND",
+//       folder: status === "SENT" ? "SENT" : "ARCHIVED",
+
+//       sentAt: status === "SENT" ? new Date() : null,
+//     },
+
+//     include: {
+//       sentBy: {
+//         select: {
+//           id: true,
+//           name: true,
+//         },
+//       },
+//     },
+//   });
+
+//   console.log("📄 Email Log Saved:", email.id);
+
+//   return email;
+// };
+
+// /*
+// =====================================================
+// GET EMAIL LOGS
+// =====================================================
+// */
+// export const getEmailLogs = async (filters) => {
+//   const where = {};
+
+//   if (filters.dealId) where.dealId = filters.dealId;
+//   if (filters.contactId) where.contactId = filters.contactId;
+//   if (filters.accountId) where.accountId = filters.accountId;
+
+//   return prisma.emailLog.findMany({
+//     where,
+//     orderBy: { createdAt: "desc" },
+//     include: {
+//       sentBy: true,
+//       template: true,
+//       attachments: true,
+//     },
+//   });
+// };
+
+//  ========================================================================================================================
+
+// CRM-Backend/src/modules/email/email.service.js
 import prisma from "../../utils/prisma.js";
+import { renderTemplate } from "./templateRenderer.js";
+import { sendEmailGateway } from "./emailGateway.js";
 import { parseTemplate } from "./templateParser.js";
 
 /*
@@ -9,107 +456,289 @@ CREATE EMAIL TEMPLATE
 =====================================================
 */
 export const createTemplate = async (data, userId) => {
-  const template = await prisma.emailTemplate.create({
-    data: {
-      name: data.name,
-      subject: data.subject,
-      body: data.body,
-      category: data.category || null,
-      createdById: userId,
-    },
-  });
+  try {
+    console.log("📄 Creating Email Template");
 
-  return template;
+    const template = await prisma.emailTemplate.create({
+      data: {
+        name: data.name,
+        subject: data.subject,
+        body: data.body,
+        category: data.category || null,
+        createdById: userId,
+      },
+    });
+
+    // ✅ FIXED — use data.body
+    const hasFooterLast =
+      data.body.lastIndexOf("{{footer}}") >
+      data.body.lastIndexOf("{{signature}}");
+    if (!hasFooterLast) {
+      console.warn(
+        "⚠️ Template order warning: {{footer}} should come after {{signature}}",
+      );
+    }
+
+    console.log("✅ Template Created:", template.id);
+
+    return template;
+  } catch (error) {
+    console.error("❌ Template Creation Failed:", error);
+    throw error;
+  }
 };
 
 /*
 =====================================================
-GET ALL EMAIL TEMPLATES
+GET EMAIL TEMPLATES
 =====================================================
 */
 export const getTemplates = async () => {
   return prisma.emailTemplate.findMany({
-    where: {
-      isActive: true,
-    },
-    orderBy: {
-      createdAt: "desc",
-    },
-    select: {
-      id: true,
-      name: true,
-      subject: true,
-      category: true,
-      createdAt: true,
-    },
+    where: { isActive: true },
+    orderBy: { createdAt: "desc" },
   });
+};
+
+/*
+=====================================================
+DETECT EMAIL PROVIDER
+=====================================================
+*/
+const detectProvider = (email) => {
+  const domain = email.split("@")[1]?.toLowerCase();
+
+  if (!domain) return "SMTP";
+
+  if (domain.includes("gmail.com")) return "GOOGLE";
+
+  if (
+    domain.includes("outlook.com") ||
+    domain.includes("hotmail.com") ||
+    domain.includes("live.com")
+  )
+    return "MICROSOFT";
+
+  return "SMTP";
 };
 
 /*
 =====================================================
 SEND EMAIL
-(Currently logs email in CRM DB)
-SMTP / Outlook integration can be added later
 =====================================================
 */
 export const sendEmail = async (data, userId) => {
   let subject = data.subject || "";
   let body = data.body || "";
+  let status = "SENT";
+  let messageId = null;
+  let providerUsed = "SMTP";
 
-  /*
-  TEMPLATE PROCESSING
-  */
-  if (data.templateId) {
-    const template = await prisma.emailTemplate.findUnique({
-      where: { id: data.templateId },
+  console.log("=====================================================");
+  console.log("📧 CRM Email Send Started");
+  console.log("=====================================================");
+
+  let user;
+
+  try {
+    /*
+    =====================================================
+    GET USER
+    =====================================================
+    */
+
+    user = await prisma.user.findUnique({
+      where: { id: userId },
     });
 
-    if (!template) {
-      throw new Error("Email template not found");
+    if (!user) {
+      throw new Error("User not found");
     }
 
-    subject = parseTemplate(template.subject, data.variables || {});
-    body = parseTemplate(template.body, data.variables || {});
+    const detectedProvider = user.emailProvider || detectProvider(user.email);
+
+    console.log("👤 Sender:", user.name);
+    console.log("📤 Sender Email:", user.email);
+    console.log("📮 Provider:", detectedProvider);
+
+    /*
+    =====================================================
+    VALIDATE PROVIDER
+    =====================================================
+    */
+
+    if (detectedProvider === "GOOGLE" && !user.emailAccessToken) {
+      throw new Error("Gmail not connected for this user");
+    }
+
+    if (detectedProvider === "MICROSOFT" && !user.emailAccessToken) {
+      throw new Error("Outlook not connected for this user");
+    }
+
+    /*
+=====================================================
+TEMPLATE PROCESSING (PRODUCTION CLEAN)
+=====================================================
+*/
+
+    let variables = {};
+
+    if (data.dealId) {
+      const deal = await prisma.deal.findUnique({
+        where: { id: data.dealId },
+        include: {
+          contact: true,
+          owner: true,
+          account: {
+            select: {
+              id: true,
+              accountName: true,
+              industry: true,
+            },
+          },
+        },
+      });
+
+      if (!deal) {
+        console.warn("⚠️ No deal found for dealId:", data.dealId);
+      }
+
+      variables = {
+        contact: deal?.contact || {},
+        deal: deal || {},
+        account: deal?.account || {},
+        user: deal?.owner || {},
+      };
+    } else if (data.contactId) {
+      const contact = await prisma.contact.findUnique({
+        where: { id: data.contactId },
+        include: {
+          account: {
+            select: {
+              id: true,
+              accountName: true,
+              industry: true,
+            },
+          },
+        },
+      });
+
+      variables = {
+        contact: contact || {},
+        account: contact?.account || {},
+      };
+    }
+
+    /*
+=====================================================
+LOAD TEMPLATE IF PROVIDED
+=====================================================
+*/
+
+    if (data.templateId) {
+      const template = await prisma.emailTemplate.findUnique({
+        where: { id: data.templateId },
+      });
+
+      if (!template) {
+        throw new Error("Email template not found");
+      }
+
+      // Template is the base
+      subject = parseTemplate(template.subject, variables);
+      body = template.body;
+    }
+
+    /*
+=====================================================
+MODAL OVERRIDES (IMPORTANT FIX)
+=====================================================
+*/
+
+    if (data.subject) {
+      subject = parseTemplate(data.subject, variables);
+    }
+
+    if (data.body) {
+      body = data.body;
+    }
+
+    /*
+=====================================================
+RENDER FINAL HTML EMAIL
+=====================================================
+*/
+
+    body = renderTemplate(body, variables);
+    /*
+    =====================================================
+    SEND EMAIL
+    =====================================================
+    */
+
+    providerUsed = detectedProvider;
+
+    console.log("📨 Routing through Email Gateway");
+
+    const result = await sendEmailGateway({
+      userId,
+      from: user.email,
+      to: data.toEmail,
+      subject,
+      html: body,
+      provider: detectedProvider,
+    });
+
+    messageId = result?.messageId || null;
+
+    console.log("📨 Email Message ID:", messageId);
+  } catch (error) {
+    console.error("❌ Email Send Failed:", error.message);
+    status = "FAILED";
   }
 
   /*
-  CREATE EMAIL LOG
+  =====================================================
+  STORE EMAIL LOG
+  =====================================================
   */
+
+  // const email = await prisma.emailLog.create({
+  //   data: {
+  //     fromEmail: user?.email || null,
+  //     toEmail: data.toEmail,
+  //     ccEmails: data.ccEmails || null,
+  //     bccEmails: data.bccEmails || null,
+
+  //     subject,
+  //     body,
+
   const email = await prisma.emailLog.create({
     data: {
+      fromEmail: user?.email || null,
       toEmail: data.toEmail,
-      ccEmails: data.ccEmails || null,
-      bccEmails: data.bccEmails || null,
+
+      ccEmails: data.ccEmails || [],
+      bccEmails: data.bccEmails || [],
 
       subject,
       body,
-
-      provider: data.provider || null,
-
-      /*
-      CRM RECORD LINKS
-      */
+      provider: providerUsed,
+      messageId,
 
       dealId: data.dealId || null,
       contactId: data.contactId || null,
       accountId: data.accountId || null,
 
-      /*
-      THREAD SUPPORT
-      */
-
-      threadId: data.threadId || null,
-      inReplyTo: data.inReplyTo || null,
-
       templateId: data.templateId || null,
 
       sentById: userId,
 
-      status: "SENT",
+      status,
       direction: "OUTBOUND",
-      folder: "SENT",
+      folder: status === "SENT" ? "SENT" : "ARCHIVED",
 
-      sentAt: new Date(),
+      sentAt: status === "SENT" ? new Date() : null,
     },
 
     include: {
@@ -122,21 +751,7 @@ export const sendEmail = async (data, userId) => {
     },
   });
 
-  /*
-  ATTACHMENTS SUPPORT (Optional)
-  */
-  if (data.attachments && data.attachments.length > 0) {
-    const attachmentData = data.attachments.map((file) => ({
-      emailId: email.id,
-      fileName: file.fileName,
-      fileUrl: file.fileUrl,
-      fileSize: file.fileSize || null,
-    }));
-
-    await prisma.emailAttachment.createMany({
-      data: attachmentData,
-    });
-  }
+  console.log("📄 Email Log Saved:", email.id);
 
   return email;
 };
@@ -152,31 +767,124 @@ export const getEmailLogs = async (filters) => {
   if (filters.dealId) where.dealId = filters.dealId;
   if (filters.contactId) where.contactId = filters.contactId;
   if (filters.accountId) where.accountId = filters.accountId;
-  if (filters.threadId) where.threadId = filters.threadId;
 
   return prisma.emailLog.findMany({
     where,
-
-    orderBy: {
-      createdAt: "desc",
-    },
-
+    orderBy: { createdAt: "desc" },
     include: {
-      sentBy: {
-        select: {
-          id: true,
-          name: true,
-        },
-      },
-
-      template: {
-        select: {
-          id: true,
-          name: true,
-        },
-      },
-
+      sentBy: true,
+      template: true,
       attachments: true,
     },
   });
+};
+
+/*
+=====================================================
+DELETE EMAIL TEMPLATE
+=====================================================
+*/
+
+export const deleteTemplate = async (templateId, userId) => {
+  try {
+    const template = await prisma.emailTemplate.findUnique({
+      where: { id: templateId },
+    });
+
+    if (!template) {
+      throw new Error("Template not found");
+    }
+
+    /*
+    =====================================================
+    GET USER ROLE
+    =====================================================
+    */
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { role: true },
+    });
+
+    /*
+    =====================================================
+    AUTHORIZATION RULES
+    =====================================================
+
+    Allow delete if:
+    1️⃣ Admin
+    2️⃣ Template created by current user
+    3️⃣ Template has no owner (AI / legacy)
+    */
+
+    const isAdmin = user?.role === "ADMIN";
+    const isOwner = template.createdById === userId;
+    const isOrphan = !template.createdById;
+
+    if (!isAdmin && !isOwner && !isOrphan) {
+      throw new Error("Unauthorized to delete this template");
+    }
+
+    /*
+    =====================================================
+    DELETE TEMPLATE
+    =====================================================
+    */
+
+    await prisma.emailTemplate.delete({
+      where: { id: templateId },
+    });
+
+    console.log("🗑️ Template deleted:", templateId);
+
+    return { success: true };
+  } catch (error) {
+    console.error("Delete Template Error:", error);
+    throw error;
+  }
+};
+
+/*
+=====================================================
+UPDATE EMAIL TEMPLATE
+=====================================================
+*/
+
+export const updateTemplate = async (templateId, data, userId) => {
+  try {
+    const template = await prisma.emailTemplate.findUnique({
+      where: { id: templateId },
+    });
+
+    if (!template) {
+      throw new Error("Template not found");
+    }
+
+    /*
+    =====================================================
+    AUTHORIZATION
+    =====================================================
+    */
+
+    if (template.createdById !== userId) {
+      throw new Error("Unauthorized to update this template");
+    }
+
+    const updated = await prisma.emailTemplate.update({
+      where: { id: templateId },
+      data: {
+        name: data.name,
+        subject: data.subject,
+        body: data.body,
+        category: data.category || null,
+      },
+    });
+
+    console.log("✏️ Template updated:", templateId);
+
+    return updated;
+  } catch (error) {
+    console.error("Update Template Error:", error);
+    throw error;
+  }
 };

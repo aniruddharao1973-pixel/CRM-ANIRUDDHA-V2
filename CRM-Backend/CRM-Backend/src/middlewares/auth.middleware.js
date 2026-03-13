@@ -31,6 +31,11 @@ export const protect = async (req, res, next) => {
         role: true,
         avatar: true,
         isActive: true,
+
+        // ⭐ REQUIRED FOR EMAIL
+        emailProvider: true,
+        emailAccessToken: true,
+        emailRefreshToken: true,
       },
     });
 

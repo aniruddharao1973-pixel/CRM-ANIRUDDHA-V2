@@ -1,3 +1,4 @@
+// CRM-Backend\src\routes\deal.routes.js
 import { Router } from "express";
 import {
   getDeals,
@@ -16,6 +17,10 @@ router.use(protect);
 
 // router.get("/pipeline/stats", getPipelineStats);
 router.route("/").get(getDeals).post(validateDeal, createDeal);
-router.route("/:id").get(getDeal).put(validateDeal, updateDeal).delete(deleteDeal);
+router
+  .route("/:id")
+  .get(getDeal)
+  .put(validateDeal, updateDeal)
+  .delete(deleteDeal);
 
 export default router;

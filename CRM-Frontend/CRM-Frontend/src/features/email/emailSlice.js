@@ -1,14 +1,14 @@
 // CRM-Frontend/src/features/email/emailSlice.js
 
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
-import axios from "axios";
+import API from "../../api/axios";
 
 /*
 =====================================================
 API BASE
 =====================================================
 */
-const API = "/api/email";
+const EMAIL_API = "/email";
 
 /*
 =====================================================
@@ -19,8 +19,7 @@ export const fetchEmailTemplates = createAsyncThunk(
   "email/fetchTemplates",
   async (_, { rejectWithValue }) => {
     try {
-      const res = await axios.get(`${API}/templates`);
-
+      const res = await API.get(`${EMAIL_API}/templates`);
       return res.data.data;
     } catch (error) {
       return rejectWithValue(
@@ -39,8 +38,7 @@ export const createEmailTemplate = createAsyncThunk(
   "email/createTemplate",
   async (templateData, { rejectWithValue }) => {
     try {
-      const res = await axios.post(`${API}/templates`, templateData);
-
+      const res = await API.post(`${EMAIL_API}/templates`, templateData);
       return res.data.data;
     } catch (error) {
       return rejectWithValue(
@@ -52,6 +50,25 @@ export const createEmailTemplate = createAsyncThunk(
 
 /*
 =====================================================
+GENERATE EMAIL TEMPLATE WITH AI
+=====================================================
+*/
+export const generateEmailTemplateAI = createAsyncThunk(
+  "email/generateTemplateAI",
+  async (payload, { rejectWithValue }) => {
+    try {
+      const res = await API.post(`${EMAIL_API}/templates/generate-ai`, payload);
+
+      return res.data.data; // <-- IMPORTANT FIX
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data?.message || "AI template generation failed",
+      );
+    }
+  },
+);
+/*
+=====================================================
 SEND EMAIL
 =====================================================
 */
@@ -59,7 +76,14 @@ export const sendEmail = createAsyncThunk(
   "email/sendEmail",
   async (emailData, { rejectWithValue }) => {
     try {
-      const res = await axios.post(`${API}/send`, emailData);
+      // FIXED ENDPOINT
+      const res = await API.post(`${EMAIL_API}/send`, emailData);
+
+      console.log("EMAIL API RESPONSE:", res.data);
+
+      if (!res.data.success) {
+        throw new Error(res.data.message || "Email API failed");
+      }
 
       return res.data.data;
     } catch (error) {
@@ -80,8 +104,7 @@ export const fetchEmailLogs = createAsyncThunk(
   async (filters = {}, { rejectWithValue }) => {
     try {
       const params = new URLSearchParams(filters).toString();
-
-      const res = await axios.get(`${API}/logs?${params}`);
+      const res = await API.get(`${EMAIL_API}/logs?${params}`);
 
       return res.data.data;
     } catch (error) {
@@ -92,6 +115,78 @@ export const fetchEmailLogs = createAsyncThunk(
   },
 );
 
+export const deleteEmailTemplate = createAsyncThunk(
+  "email/deleteTemplate",
+  async (id, { rejectWithValue }) => {
+    try {
+      await API.delete(`${EMAIL_API}/templates/${id}`);
+
+      return { id };
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data?.message || "Failed to delete template",
+      );
+    }
+  },
+);
+
+export const updateEmailTemplate = createAsyncThunk(
+  "email/updateTemplate",
+  async ({ id, data }, { rejectWithValue }) => {
+    try {
+      const res = await API.put(`/email/templates/${id}`, data);
+      return res.data.data;
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data?.message || "Failed to update template",
+      );
+    }
+  },
+);
+
+/*
+=====================================================
+SEND BULK EMAIL CAMPAIGN
+=====================================================
+*/
+export const sendEmailCampaign = createAsyncThunk(
+  "email/sendCampaign",
+  async (campaignData, { rejectWithValue }) => {
+    try {
+      const res = await API.post(`${EMAIL_API}/campaign/send`, campaignData);
+
+      if (!res.data.success) {
+        throw new Error(res.data.message || "Campaign failed");
+      }
+
+      return res.data;
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data?.message || "Failed to send campaign",
+      );
+    }
+  },
+);
+
+/*
+=====================================================
+FETCH CAMPAIGN STATUS (POLLING FOR PROGRESS BAR)
+=====================================================
+*/
+export const fetchCampaignStatus = createAsyncThunk(
+  "email/fetchCampaignStatus",
+  async (campaignId, { rejectWithValue }) => {
+    try {
+      const res = await API.get(`${EMAIL_API}/campaign/${campaignId}/status`);
+
+      return res.data;
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data?.message || "Failed to fetch campaign status",
+      );
+    }
+  },
+);
 /*
 =====================================================
 INITIAL STATE
@@ -104,12 +199,22 @@ const initialState = {
   loadingTemplates: false,
   loadingLogs: false,
   sendingEmail: false,
+  sendingCampaign: false,
+
+  generatingTemplate: false,
 
   sendSuccess: false,
+  campaignResult: null,
+
+  campaignProgress: 0,
+  campaignTotal: 0,
+  campaignSent: 0,
+  campaignFailed: 0,
+
+  generatedTemplate: null,
 
   error: null,
 };
-
 /*
 =====================================================
 SLICE
@@ -119,6 +224,16 @@ const emailSlice = createSlice({
   name: "email",
   initialState,
 
+  // reducers: {
+  //   clearEmailError: (state) => {
+  //     state.error = null;
+  //   },
+
+  //   resetSendStatus: (state) => {
+  //     state.sendSuccess = false;
+  //   },
+  // },
+
   reducers: {
     clearEmailError: (state) => {
       state.error = null;
@@ -126,6 +241,25 @@ const emailSlice = createSlice({
 
     resetSendStatus: (state) => {
       state.sendSuccess = false;
+    },
+
+    /*
+  =========================================
+  CAMPAIGN PROGRESS UPDATE (POLLING)
+  =========================================
+  */
+    updateCampaignProgress: (state, action) => {
+      state.campaignProgress = action.payload.progress;
+      state.campaignTotal = action.payload.total;
+      state.campaignSent = action.payload.sent;
+      state.campaignFailed = action.payload.failed;
+    },
+
+    resetCampaignProgress: (state) => {
+      state.campaignProgress = 0;
+      state.campaignTotal = 0;
+      state.campaignSent = 0;
+      state.campaignFailed = 0;
     },
   },
 
@@ -136,16 +270,13 @@ const emailSlice = createSlice({
     =====================================================
     */
     builder
-
       .addCase(fetchEmailTemplates.pending, (state) => {
         state.loadingTemplates = true;
       })
-
       .addCase(fetchEmailTemplates.fulfilled, (state, action) => {
         state.loadingTemplates = false;
         state.templates = action.payload;
       })
-
       .addCase(fetchEmailTemplates.rejected, (state, action) => {
         state.loadingTemplates = false;
         state.error = action.payload;
@@ -157,11 +288,9 @@ const emailSlice = createSlice({
     =====================================================
     */
     builder
-
       .addCase(createEmailTemplate.fulfilled, (state, action) => {
         state.templates.unshift(action.payload);
       })
-
       .addCase(createEmailTemplate.rejected, (state, action) => {
         state.error = action.payload;
       });
@@ -172,17 +301,15 @@ const emailSlice = createSlice({
     =====================================================
     */
     builder
-
       .addCase(sendEmail.pending, (state) => {
         state.sendingEmail = true;
         state.sendSuccess = false;
       })
-
-      .addCase(sendEmail.fulfilled, (state) => {
+      .addCase(sendEmail.fulfilled, (state, action) => {
         state.sendingEmail = false;
         state.sendSuccess = true;
+        state.logs.unshift(action.payload);
       })
-
       .addCase(sendEmail.rejected, (state, action) => {
         state.sendingEmail = false;
         state.error = action.payload;
@@ -194,23 +321,119 @@ const emailSlice = createSlice({
     =====================================================
     */
     builder
-
       .addCase(fetchEmailLogs.pending, (state) => {
         state.loadingLogs = true;
       })
-
       .addCase(fetchEmailLogs.fulfilled, (state, action) => {
         state.loadingLogs = false;
         state.logs = action.payload;
       })
-
       .addCase(fetchEmailLogs.rejected, (state, action) => {
         state.loadingLogs = false;
         state.error = action.payload;
       });
+
+    /*
+=====================================================
+GENERATE TEMPLATE AI
+=====================================================
+*/
+    // builder
+    //   .addCase(generateEmailTemplateAI.pending, (state) => {
+    //     state.generatingTemplate = true;
+    //   })
+    //   .addCase(generateEmailTemplateAI.fulfilled, (state, action) => {
+    //     state.generatingTemplate = false;
+    //     state.generatedTemplate = action.payload;
+    //   })
+    //   .addCase(generateEmailTemplateAI.rejected, (state, action) => {
+    //     state.generatingTemplate = false;
+    //     state.error = action.payload;
+    //   });
+
+    /*
+=====================================================
+GENERATE TEMPLATE AI
+=====================================================
+*/
+    builder
+      .addCase(generateEmailTemplateAI.pending, (state) => {
+        state.generatingTemplate = true;
+        state.generatedTemplate = null;
+      })
+      .addCase(generateEmailTemplateAI.fulfilled, (state, action) => {
+        state.generatingTemplate = false;
+
+        // Only store generated template for preview
+        state.generatedTemplate = action.payload;
+
+        // DO NOT add it to saved templates list
+      })
+      .addCase(generateEmailTemplateAI.rejected, (state, action) => {
+        state.generatingTemplate = false;
+        state.error = action.payload;
+      })
+
+      /*
+=====================================================
+DELETE TEMPLATE
+=====================================================
+*/
+      .addCase(deleteEmailTemplate.fulfilled, (state, action) => {
+        state.templates = state.templates.filter(
+          (t) => t.id !== action.payload.id,
+        );
+      })
+
+      .addCase(updateEmailTemplate.fulfilled, (state, action) => {
+        state.templates = state.templates.map((t) =>
+          t.id === action.payload.id ? action.payload : t,
+        );
+      });
+
+    /*
+=====================================================
+SEND EMAIL CAMPAIGN
+=====================================================
+*/
+    builder
+      .addCase(sendEmailCampaign.pending, (state) => {
+        state.sendingCampaign = true;
+        state.campaignResult = null;
+
+        state.campaignProgress = 0;
+        state.campaignSent = 0;
+        state.campaignFailed = 0;
+      })
+      .addCase(sendEmailCampaign.fulfilled, (state, action) => {
+        state.sendingCampaign = false;
+        state.campaignResult = action.payload;
+      })
+      .addCase(sendEmailCampaign.rejected, (state, action) => {
+        state.sendingCampaign = false;
+        state.error = action.payload;
+      });
+    /*
+=====================================================
+FETCH CAMPAIGN STATUS
+=====================================================
+*/
+    builder.addCase(fetchCampaignStatus.fulfilled, (state, action) => {
+      state.campaignProgress = action.payload.progress;
+      state.campaignTotal = action.payload.total;
+      state.campaignSent = action.payload.sent;
+      state.campaignFailed = action.payload.failed;
+    });
   },
 });
 
-export const { clearEmailError, resetSendStatus } = emailSlice.actions;
+// export const { clearEmailError, resetSendStatus } = emailSlice.actions;
+
+export const {
+  clearEmailError,
+  resetSendStatus,
+  updateCampaignProgress,
+  resetCampaignProgress,
+} = emailSlice.actions;
 
 export default emailSlice.reducer;

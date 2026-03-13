@@ -1,5 +1,3 @@
-
-
 // // src/features/contacts/ContactList.jsx
 // import { useEffect, useState } from "react";
 // import { useDispatch, useSelector } from "react-redux";
@@ -288,6 +286,7 @@
 // );}
 
 // export default ContactList;
+
 // src/features/contacts/ContactList.jsx
 import { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
@@ -313,16 +312,35 @@ import {
   UserGroupIcon,
 } from "@heroicons/react/24/outline";
 import { UserIcon } from "@heroicons/react/24/solid";
+import SendCampaignModal from "../email/components/SendCampaignModal";
+import CampaignInbox from "../email/components/CampaignInbox";
+import EmailTemplateManager from "../email/components/EmailTemplateManager";
 
 // Lead Source Colors
 const LEAD_SOURCE_COLORS = {
   WEBSITE: { bg: "bg-blue-50", text: "text-blue-700", dot: "bg-blue-500" },
   REFERRAL: { bg: "bg-green-50", text: "text-green-700", dot: "bg-green-500" },
   LINKEDIN: { bg: "bg-sky-50", text: "text-sky-700", dot: "bg-sky-500" },
-  COLD_CALL: { bg: "bg-orange-50", text: "text-orange-700", dot: "bg-orange-500" },
-  TRADE_SHOW: { bg: "bg-purple-50", text: "text-purple-700", dot: "bg-purple-500" },
-  ADVERTISEMENT: { bg: "bg-pink-50", text: "text-pink-700", dot: "bg-pink-500" },
-  EMAIL_CAMPAIGN: { bg: "bg-indigo-50", text: "text-indigo-700", dot: "bg-indigo-500" },
+  COLD_CALL: {
+    bg: "bg-orange-50",
+    text: "text-orange-700",
+    dot: "bg-orange-500",
+  },
+  TRADE_SHOW: {
+    bg: "bg-purple-50",
+    text: "text-purple-700",
+    dot: "bg-purple-500",
+  },
+  ADVERTISEMENT: {
+    bg: "bg-pink-50",
+    text: "text-pink-700",
+    dot: "bg-pink-500",
+  },
+  EMAIL_CAMPAIGN: {
+    bg: "bg-indigo-50",
+    text: "text-indigo-700",
+    dot: "bg-indigo-500",
+  },
   PARTNER: { bg: "bg-teal-50", text: "text-teal-700", dot: "bg-teal-500" },
   OTHER: { bg: "bg-gray-50", text: "text-gray-700", dot: "bg-gray-500" },
 };
@@ -350,6 +368,11 @@ const ContactList = () => {
     id: null,
     name: "",
   });
+  const [selectedContacts, setSelectedContacts] = useState([]);
+
+  const [showCampaignModal, setShowCampaignModal] = useState(false);
+  const [showInbox, setShowInbox] = useState(false);
+  const [showTemplateManager, setShowTemplateManager] = useState(false);
 
   const debouncedSearch = useDebounce(search);
 
@@ -395,13 +418,41 @@ const ContactList = () => {
             Manage your contact database and relationships
           </p>
         </div>
-        <button
-          onClick={() => navigate("/contacts/new")}
-         className="inline-flex items-center gap-2 px-4 py-2.5 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 active:scale-[0.98] transition-all shadow-sm"
-        >
-          <PlusIcon className="w-5 h-5 mr-2" />
-          New Contact
-        </button>
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* SEND CAMPAIGN */}
+          <button
+            onClick={() => setShowCampaignModal(true)}
+            disabled={!selectedContacts.length}
+            className="inline-flex items-center gap-2 px-4 py-2.5 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 disabled:opacity-40"
+          >
+            Send Campaign
+          </button>
+
+          {/* INBOX */}
+          <button
+            onClick={() => setShowInbox(true)}
+            className="inline-flex items-center gap-2 px-4 py-2.5 bg-gray-700 text-white text-sm font-medium rounded-lg hover:bg-gray-800"
+          >
+            Inbox
+          </button>
+
+          {/* TEMPLATE */}
+          <button
+            onClick={() => setShowTemplateManager(true)}
+            className="inline-flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700"
+          >
+            + Template
+          </button>
+
+          {/* NEW CONTACT */}
+          <button
+            onClick={() => navigate("/contacts/new")}
+            className="inline-flex items-center gap-2 px-4 py-2.5 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700"
+          >
+            <PlusIcon className="w-5 h-5" />
+            New Contact
+          </button>
+        </div>
       </div>
 
       {/* Search & Filters */}
@@ -438,7 +489,8 @@ const ContactList = () => {
         <div className="mt-3 flex items-center gap-2 text-sm text-gray-500">
           <UserGroupIcon className="w-4 h-4" />
           <span>
-            {pagination?.total || 0} contact{pagination?.total !== 1 ? "s" : ""} found
+            {pagination?.total || 0} contact{pagination?.total !== 1 ? "s" : ""}{" "}
+            found
           </span>
         </div>
       </div>
@@ -482,6 +534,19 @@ const ContactList = () => {
               <table className="w-full">
                 <thead>
                   <tr className="bg-gray-50 border-b border-gray-200">
+                    <th className="px-4 py-4">
+                      <input
+                        type="checkbox"
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setSelectedContacts(contacts.map((c) => c.id));
+                          } else {
+                            setSelectedContacts([]);
+                          }
+                        }}
+                      />
+                    </th>
+
                     <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                       Upcoming Task
                     </th>
@@ -510,7 +575,9 @@ const ContactList = () => {
                 </thead>
                 <tbody className="divide-y divide-gray-200">
                   {contacts.map((contact) => {
-                    const sourceColor = LEAD_SOURCE_COLORS[contact.leadSource] || {
+                    const sourceColor = LEAD_SOURCE_COLORS[
+                      contact.leadSource
+                    ] || {
                       bg: "bg-gray-50",
                       text: "text-gray-700",
                       dot: "bg-gray-500",
@@ -521,12 +588,32 @@ const ContactList = () => {
                         key={contact.id}
                         className="hover:bg-gray-50/50 transition-colors duration-150"
                       >
+                        <td className="px-4 py-4">
+                          <input
+                            type="checkbox"
+                            checked={selectedContacts.includes(contact.id)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setSelectedContacts([
+                                  ...selectedContacts,
+                                  contact.id,
+                                ]);
+                              } else {
+                                setSelectedContacts(
+                                  selectedContacts.filter(
+                                    (id) => id !== contact.id,
+                                  ),
+                                );
+                              }
+                            }}
+                          />
+                        </td>
                         {/* Upcoming Task */}
                         <td className="px-6 py-4 whitespace-nowrap">
                           {contact.upcomingTask ? (
                             <span
                               className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium border ${getPriorityStyles(
-                                contact.upcomingTask.priority
+                                contact.upcomingTask.priority,
                               )}`}
                             >
                               {formatDate(contact.upcomingTask.dueDate)}
@@ -639,7 +726,9 @@ const ContactList = () => {
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="flex items-center justify-end gap-1">
                             <button
-                              onClick={() => navigate(`/contacts/${contact.id}`)}
+                              onClick={() =>
+                                navigate(`/contacts/${contact.id}`)
+                              }
                               className="p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all duration-200"
                               title="View Contact"
                             >
@@ -713,7 +802,7 @@ const ContactList = () => {
                       {contact.upcomingTask && (
                         <span
                           className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${getPriorityStyles(
-                            contact.upcomingTask.priority
+                            contact.upcomingTask.priority,
                           )}`}
                         >
                           {formatDate(contact.upcomingTask.dueDate)}
@@ -903,8 +992,8 @@ const ContactList = () => {
                     <span className="font-medium text-gray-900">
                       "{deleteModal.name}"
                     </span>
-                    ? This action cannot be undone and will remove all associated
-                    data.
+                    ? This action cannot be undone and will remove all
+                    associated data.
                   </p>
                 </div>
               </div>
@@ -937,6 +1026,21 @@ const ContactList = () => {
             </div>
           </div>
         </div>
+      )}
+      {/* SEND CAMPAIGN MODAL */}
+      {showCampaignModal && (
+        <SendCampaignModal
+          contacts={contacts.filter((c) => selectedContacts.includes(c.id))}
+          onClose={() => setShowCampaignModal(false)}
+        />
+      )}
+
+      {/* CAMPAIGN INBOX */}
+      {showInbox && <CampaignInbox onClose={() => setShowInbox(false)} />}
+
+      {/* TEMPLATE MANAGER */}
+      {showTemplateManager && (
+        <EmailTemplateManager onClose={() => setShowTemplateManager(false)} />
       )}
     </div>
   );

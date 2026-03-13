@@ -204,6 +204,8 @@
 //     },
 //   });
 // });
+
+// CRM-Backend\CRM-Backend\src\controllers\deal.controller.js
 import prisma from "../utils/prisma.js";
 import { ApiError, asyncHandler } from "../utils/ApiError.js";
 
@@ -265,12 +267,22 @@ const generateDealLogId = async (tx) => {
 //   modifiedBy: { select: { name: true } },
 // };
 
-const dealInclude = {
+const dealInclude = { 
   account: { select: { id: true, accountName: true } },
-  contact: { select: { id: true, firstName: true, lastName: true } },
+
+  contact: {
+    select: {
+      id: true,
+      firstName: true,
+      lastName: true,
+      email: true,
+    },
+  },
+
   owner: { select: { id: true, name: true } },
   createdBy: { select: { id: true, name: true } },
   modifiedBy: { select: { id: true, name: true } },
+
   stageHistory: {
     include: { changedBy: { select: { name: true } } },
     orderBy: { createdAt: "desc" },
@@ -438,7 +450,6 @@ export const createDeal = asyncHandler(async (req, res) => {
 
 //   res.json({ success: true, data: result });
 // });
-
 
 /* =========================================================
    UPDATE DEAL + STAGE HISTORY

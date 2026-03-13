@@ -74,6 +74,7 @@
 //   console.log(`📋 Health check: http://localhost:${PORT}/api/health`);
 // });
 
+// CRM-Backend\CRM-Backend\src\server.js
 import express from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
@@ -146,6 +147,7 @@ app.use("/api/reminders", reminderRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/ai", aiRoutes);
 app.use("/api/email", emailRoutes);
+app.use("/public", express.static("public"));
 // app.get("/api/health", (req, res) => {
 //   res.json({ status: "OK", timestamp: new Date().toISOString() });
 // });

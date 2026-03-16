@@ -306,10 +306,21 @@ const analyticsSlice = createSlice({
 
     /* NEW */
     kpis: {
-      pipelineValue: 0,
-      winRate: 0,
-      avgDealSize: 0,
-      salesCycle: 0,
+      conversionRate: 0,
+      revenueWon: 0,
+      winLossRatio: {
+        won: 0,
+        lost: 0,
+      },
+      revenueRealizationRate: 0,
+
+      calculation: {
+        wonDeals: 0,
+        lostDeals: 0,
+        closedDeals: 0,
+        revenueWon: 0,
+        revenueLost: 0,
+      },
     },
 
     dashboardLoading: false,
@@ -371,7 +382,10 @@ const analyticsSlice = createSlice({
 
       /* ---------------- KPI Metrics ---------------- */
       .addCase(fetchKpiMetrics.fulfilled, (state, action) => {
-        state.kpis = action.payload;
+        state.kpis = {
+          ...state.kpis,
+          ...action.payload,
+        };
       })
 
       /* ---------------- Deal Momentum Engine ---------------- */

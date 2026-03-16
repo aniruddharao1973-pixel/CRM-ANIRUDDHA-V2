@@ -2042,6 +2042,14 @@ export const getKpiMetrics = asyncHandler(async (req, res) => {
       revenueWon,
       winLossRatio,
       revenueRealizationRate,
+
+      calculation: {
+        wonDeals,
+        lostDeals,
+        closedDeals,
+        revenueWon,
+        revenueLost,
+      },
     },
   });
 });

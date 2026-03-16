@@ -1,3 +1,27 @@
+// // src/modules/email/emailCampaign.routes.js
+
+// import express from "express";
+// import {
+//   sendCampaign,
+//   getCampaigns,
+//   getCampaignStatus,
+// } from "./emailCampaign.controller.js";
+// import { protect } from "../../middlewares/auth.middleware.js";
+
+// const router = express.Router();
+
+// /*
+// =====================================================
+// SEND BULK EMAIL CAMPAIGN
+// =====================================================
+// */
+
+// router.post("/send", protect, sendCampaign);
+// router.get("/list", protect, getCampaigns);
+// router.get("/campaign/:id/status", protect, getCampaignStatus);
+
+// export default router;
+
 // src/modules/email/emailCampaign.routes.js
 
 import express from "express";
@@ -5,6 +29,7 @@ import {
   sendCampaign,
   getCampaigns,
   getCampaignStatus,
+  deleteCampaign,
 } from "./emailCampaign.controller.js";
 import { protect } from "../../middlewares/auth.middleware.js";
 
@@ -15,9 +40,27 @@ const router = express.Router();
 SEND BULK EMAIL CAMPAIGN
 =====================================================
 */
-
 router.post("/send", protect, sendCampaign);
+
+/*
+=====================================================
+GET CAMPAIGNS (Campaign Inbox)
+=====================================================
+*/
 router.get("/list", protect, getCampaigns);
-router.get("/campaign/:id/status", protect, getCampaignStatus);
+
+/*
+=====================================================
+GET CAMPAIGN STATUS (Progress Bar)
+=====================================================
+*/
+router.get("/:id/status", protect, getCampaignStatus);
+
+/*
+=====================================================
+DELETE CAMPAIGN
+=====================================================
+*/
+router.delete("/:id", protect, deleteCampaign);
 
 export default router;

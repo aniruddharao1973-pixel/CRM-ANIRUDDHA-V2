@@ -237,3 +237,57 @@ export const getCampaigns = async (req, res) => {
     });
   }
 };
+/*
+=====================================================
+DELETE CAMPAIGN
+=====================================================
+*/
+
+export const deleteCampaign = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const campaign = await prisma.emailCampaign.findUnique({
+      where: { id },
+    });
+
+    if (!campaign) {
+      return res.status(404).json({
+        success: false,
+        message: "Campaign not found",
+      });
+    }
+
+    /*
+    =========================================
+    DELETE EMAIL LOGS FIRST (FK constraint)
+    =========================================
+    */
+
+    await prisma.emailLog.deleteMany({
+      where: { campaignId: id },
+    });
+
+    /*
+    =========================================
+    DELETE CAMPAIGN
+    =========================================
+    */
+
+    await prisma.emailCampaign.delete({
+      where: { id },
+    });
+
+    res.json({
+      success: true,
+      message: "Campaign deleted successfully",
+    });
+  } catch (error) {
+    console.error("Delete campaign error:", error);
+
+    res.status(500).json({
+      success: false,
+      message: "Failed to delete campaign",
+    });
+  }
+};

@@ -1435,6 +1435,7 @@ import {
 } from "../analyticsSlice";
 import API from "../../../api/axios";
 import { askAnalyticsAI } from "../../../api/aiApi";
+import KpiCalculationTooltip from "../KpiCalculationTooltip";
 
 /* ───────────────── CONSTANTS ───────────────── */
 
@@ -1591,10 +1592,19 @@ function DonutChart({ data }) {
 }
 /* ───────────────── KPI CARD ───────────────── */
 
-function KPICard({ label, value, subtitle, accent, icon, trend }) {
+function KPICard({ label, value, subtitle, accent, icon, trend, calculation }) {
+  const [open, setOpen] = React.useState(false);
+
   return (
     <div
-      className="group relative overflow-hidden rounded-2xl bg-white border border-slate-100 p-7 shadow-sm hover:shadow-md transition-all duration-300 hover:-translate-y-0.5"
+      className="
+group relative overflow-visible rounded-2xl 
+bg-white border border-slate-100 p-7
+shadow-sm hover:shadow-xl
+transition-all duration-300
+hover:-translate-y-1
+hover:border-slate-200
+"
       style={{ borderTop: `3px solid ${accent}` }}
     >
       <div className="flex items-start justify-between mb-3">
@@ -1604,22 +1614,52 @@ function KPICard({ label, value, subtitle, accent, icon, trend }) {
         >
           {icon}
         </div>
+
         {trend !== undefined && (
-          // FONT: text-xs → text-sm
           <span
-            className={`text-sm font-semibold px-2 py-0.5 rounded-full ${trend >= 0 ? "bg-emerald-50 text-emerald-600" : "bg-rose-50 text-rose-600"}`}
+            className={`text-sm font-semibold px-2 py-0.5 rounded-full ${
+              trend >= 0
+                ? "bg-emerald-50 text-emerald-600"
+                : "bg-rose-50 text-rose-600"
+            }`}
           >
             {trend >= 0 ? "↑" : "↓"} {Math.abs(trend)}%
           </span>
         )}
       </div>
-      {/* FONT: text-xs → text-sm */}
-      <p className="text-sm uppercase tracking-widest text-slate-400 font-medium mb-1">
+
+      {/* <p className="text-sm uppercase tracking-widest text-slate-400 font-medium mb-1">
         {label}
-      </p>
-      {/* unchanged: text-3xl already large */}
+      </p> */}
+      <div className="flex items-center gap-2 mb-1">
+        <p className="text-sm uppercase tracking-widest text-slate-400 font-medium">
+          {label}
+        </p>
+
+        {calculation && (
+          <div className="relative z-20">
+            <button
+              onClick={() => setOpen(!open)}
+              className="
+        flex items-center justify-center
+        w-4 h-4 rounded-full
+        bg-indigo-100 text-indigo-600
+        text-[10px] font-bold
+        hover:bg-indigo-200
+        transition
+        "
+            >
+              i
+            </button>
+
+            <KpiCalculationTooltip open={open} onClose={() => setOpen(false)}>
+              {calculation}
+            </KpiCalculationTooltip>
+          </div>
+        )}
+      </div>
+
       <p className="text-3xl font-bold text-slate-800 leading-none">{value}</p>
-      {/* FONT: text-sm → text-base */}
       {subtitle && <p className="text-base text-slate-400 mt-1">{subtitle}</p>}
     </div>
   );
@@ -1822,7 +1862,7 @@ function FunnelLegend({ data }) {
 
             {/* Stage info + bar */}
             <div className="flex-1 min-w-0">
-              <div className="flex items-center justify-between mb-1">
+              <div className="relative z-20 flex items-center justify-between mb-1">
                 <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide truncate">
                   {s.stage.replace(/_/g, " ")}
                 </span>
@@ -2569,7 +2609,7 @@ Strategic Recommendation: <one sentence>
           </div>
         </div>
 
-        <div className="flex items-center justify-between mb-1">
+        <div className="relative z-20 flex items-center justify-between mb-1">
           <div>
             <h3 className="text-lg font-semibold text-slate-800">
               Pipeline Overview
@@ -2581,37 +2621,271 @@ Strategic Recommendation: <one sentence>
         </div>
 
         {/* ── KPI STRIP ── */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+        {/* <div className="relative z-20 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+          
           <KPICard
             label="Conversion Rate"
             value={`${kpis.conversionRate || 0}%`}
             subtitle="Closed won vs total deals"
             accent="#10b981"
             icon="🏆"
+            calculation={
+              <div>
+                <p className="font-semibold mb-2">Calculation</p>
+
+                <p>Won Deals: {kpis.calculation?.wonDeals || 0}</p>
+                <p>Lost Deals: {kpis.calculation?.lostDeals || 0}</p>
+
+                <p className="mt-2 text-slate-500">Formula</p>
+
+                <p className="font-mono text-xs">
+                  ({kpis.calculation?.wonDeals || 0} /{" "}
+                  {kpis.calculation?.closedDeals || 0}) × 100
+                </p>
+
+                <p className="font-bold mt-1">= {kpis.conversionRate || 0}%</p>
+              </div>
+            }
           />
 
+          
           <KPICard
             label="Revenue Won"
             value={`₹${(kpis.revenueWon || 0).toLocaleString()}`}
             subtitle="Total closed revenue"
             accent="#f59e0b"
             icon="💵"
+            calculation={
+              <div>
+                <p className="font-semibold mb-2">Calculation</p>
+
+                <p>Revenue from CLOSED_WON deals</p>
+
+                <p className="mt-2 font-mono text-xs">
+                  Total = ₹
+                  {(kpis.calculation?.revenueWon || 0).toLocaleString()}
+                </p>
+              </div>
+            }
           />
 
+          
           <KPICard
             label="Win / Loss Ratio"
             value={`${kpis.winLossRatio?.won || 0} : ${kpis.winLossRatio?.lost || 0}`}
             subtitle="Won deals vs lost deals"
             accent="#6366f1"
             icon="⚖️"
+            calculation={
+              <div>
+                <p className="font-semibold mb-2">Calculation</p>
+
+                <p>Won Deals: {kpis.calculation?.wonDeals || 0}</p>
+                <p>Lost Deals: {kpis.calculation?.lostDeals || 0}</p>
+
+                <p className="mt-2 font-mono text-xs">
+                  {kpis.calculation?.wonDeals || 0} :{" "}
+                  {kpis.calculation?.lostDeals || 0}
+                </p>
+              </div>
+            }
           />
 
+          
           <KPICard
             label="Revenue Realization"
             value={`${kpis.revenueRealizationRate || 0}%`}
             subtitle="Revenue won vs potential"
             accent="#0ea5e9"
             icon="📊"
+            calculation={
+              <div>
+                <p className="font-semibold mb-2">Calculation</p>
+
+                <p>
+                  Revenue Won: ₹
+                  {(kpis.calculation?.revenueWon || 0).toLocaleString()}
+                </p>
+
+                <p>
+                  Revenue Lost: ₹
+                  {(kpis.calculation?.revenueLost || 0).toLocaleString()}
+                </p>
+
+                <p className="mt-2 text-slate-500">Formula</p>
+
+                <p className="font-mono text-xs">
+                  ({kpis.calculation?.revenueWon || 0} / (
+                  {kpis.calculation?.revenueWon || 0} +
+                  {kpis.calculation?.revenueLost || 0})) × 100
+                </p>
+
+                <p className="font-bold mt-1">
+                  = {kpis.revenueRealizationRate || 0}%
+                </p>
+              </div>
+            }
+          />
+        </div> */}
+
+        {/* ── KPI STRIP ── */}
+        <div className="relative z-20 overflow-visible grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+          {/* Conversion Rate */}
+          <KPICard
+            label="Conversion Rate"
+            value={`${kpis.conversionRate || 0}%`}
+            subtitle="Closed won vs total deals"
+            accent="#10b981"
+            icon="🏆"
+            calculation={
+              <div className="space-y-1">
+                <p className="font-semibold text-slate-700 mb-2">
+                  🧮 Calculation
+                </p>
+
+                <p>Won Deals: {kpis.calculation?.wonDeals || 0}</p>
+                <p>Lost Deals: {kpis.calculation?.lostDeals || 0}</p>
+                <p>Total Deals: {kpis.calculation?.closedDeals || 0}</p>
+
+                <p className="text-slate-500 text-xs mt-2">Formula</p>
+                <p className="font-mono text-xs">
+                  ({kpis.calculation?.wonDeals || 0} /{" "}
+                  {kpis.calculation?.closedDeals || 0}) × 100
+                </p>
+
+                <p className="font-bold">= {kpis.conversionRate || 0}%</p>
+
+                <div className="border-t pt-2 mt-2">
+                  <p className="text-emerald-600 text-xs font-medium">
+                    🟢 Healthy conversion rate
+                  </p>
+                  <p className="text-xs text-slate-500">
+                    High conversion indicates strong deal qualification.
+                  </p>
+                </div>
+              </div>
+            }
+          />
+
+          {/* Revenue Won */}
+          <KPICard
+            label="Revenue Won"
+            value={`₹${(kpis.revenueWon || 0).toLocaleString()}`}
+            subtitle="Total closed revenue"
+            accent="#f59e0b"
+            icon="💵"
+            calculation={
+              <div className="space-y-1">
+                <p className="font-semibold text-slate-700 mb-2">
+                  🧮 Calculation
+                </p>
+
+                <p>Total Closed Won Revenue</p>
+
+                <p className="text-slate-500 text-xs mt-2">Formula</p>
+                <p className="font-mono text-xs">
+                  Sum(All CLOSED_WON deal values)
+                </p>
+
+                <p className="font-bold">
+                  = ₹{(kpis.calculation?.revenueWon || 0).toLocaleString()}
+                </p>
+
+                <div className="border-t pt-2 mt-2">
+                  <p className="text-indigo-600 text-xs font-medium">
+                    💰 Revenue Performance
+                  </p>
+                  <p className="text-xs text-slate-500">
+                    Represents total realized revenue from successfully closed
+                    deals.
+                  </p>
+                </div>
+              </div>
+            }
+          />
+
+          {/* Win Loss Ratio */}
+          <KPICard
+            label="Win / Loss Ratio"
+            value={`${kpis.winLossRatio?.won || 0} : ${kpis.winLossRatio?.lost || 0}`}
+            subtitle="Won deals vs lost deals"
+            accent="#6366f1"
+            icon="⚖️"
+            calculation={
+              <div className="space-y-1">
+                <p className="font-semibold text-slate-700 mb-2">
+                  🧮 Calculation
+                </p>
+
+                <p>Won Deals: {kpis.calculation?.wonDeals || 0}</p>
+                <p>Lost Deals: {kpis.calculation?.lostDeals || 0}</p>
+
+                <p className="text-slate-500 text-xs mt-2">Formula</p>
+                <p className="font-mono text-xs">Won Deals : Lost Deals</p>
+
+                <p className="font-bold">
+                  {kpis.calculation?.wonDeals || 0} :{" "}
+                  {kpis.calculation?.lostDeals || 0}
+                </p>
+
+                <div className="border-t pt-2 mt-2">
+                  <p className="text-indigo-600 text-xs font-medium">
+                    ⚖️ Sales Efficiency
+                  </p>
+                  <p className="text-xs text-slate-500">
+                    Indicates how effectively opportunities are converted into
+                    wins.
+                  </p>
+                </div>
+              </div>
+            }
+          />
+
+          {/* Revenue Realization */}
+          <KPICard
+            label="Revenue Realization"
+            value={`${kpis.revenueRealizationRate || 0}%`}
+            subtitle="Revenue won vs potential"
+            accent="#0ea5e9"
+            icon="📊"
+            calculation={
+              <div className="space-y-1">
+                <p className="font-semibold text-slate-700 mb-2">
+                  🧮 Calculation
+                </p>
+
+                <p>
+                  Revenue Won: ₹
+                  {(kpis.calculation?.revenueWon || 0).toLocaleString()}
+                </p>
+                <p>
+                  Revenue Lost: ₹
+                  {(kpis.calculation?.revenueLost || 0).toLocaleString()}
+                </p>
+
+                <p className="text-slate-500 text-xs mt-2">Formula</p>
+
+                <p className="font-mono text-xs">
+                  ({kpis.calculation?.revenueWon || 0} / (
+                  {kpis.calculation?.revenueWon || 0} +{" "}
+                  {kpis.calculation?.revenueLost || 0})) × 100
+                </p>
+
+                <p className="font-bold">
+                  = {kpis.revenueRealizationRate || 0}%
+                </p>
+
+                <div className="border-t pt-2 mt-2">
+                  <p className="text-sky-600 text-xs font-medium">
+                    📊 Revenue Efficiency
+                  </p>
+                  <p className="text-xs text-slate-500">
+                    Measures how much potential revenue was successfully
+                    captured.
+                  </p>
+                </div>
+              </div>
+            }
           />
         </div>
 

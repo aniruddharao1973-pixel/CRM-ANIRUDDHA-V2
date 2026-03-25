@@ -171,6 +171,7 @@ const allowedOrigins = [
   "http://localhost:5173",
   "http://192.168.135.54:5173",
   "https://crm-aniruddha-v2.vercel.app",
+  "https://crm-aniruddha-v2-git-main-aniruddharao1973-pixels-projects.vercel.app",
 ];
 
 /* =========================================================
@@ -203,8 +204,9 @@ app.use(
 
 export const io = new Server(server, {
   cors: {
-    origin: "*", // or process.env.FRONTEND_URL
+    origin: allowedOrigins,
     methods: ["GET", "POST"],
+    credentials: true,
   },
 });
 io.on("connection", (socket) => {

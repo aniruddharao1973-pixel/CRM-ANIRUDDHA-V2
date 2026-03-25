@@ -38,10 +38,17 @@ export const register = asyncHandler(async (req, res) => {
 
   const token = generateToken(user.id);
 
+  // res.cookie("token", token, {
+  //   httpOnly: true,
+  //   secure: process.env.NODE_ENV === "production",
+  //   sameSite: "strict",
+  //   maxAge: 7 * 24 * 60 * 60 * 1000,
+  // });
+
   res.cookie("token", token, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "strict",
+    secure: true, // must be true in production
+    sameSite: "none", // CRITICAL FIX
     maxAge: 7 * 24 * 60 * 60 * 1000,
   });
 
@@ -81,10 +88,17 @@ export const login = asyncHandler(async (req, res) => {
 
   const token = generateToken(user.id);
 
+  // res.cookie("token", token, {
+  //   httpOnly: true,
+  //   secure: process.env.NODE_ENV === "production",
+  //   sameSite: "strict",
+  //   maxAge: 7 * 24 * 60 * 60 * 1000,
+  // });
+
   res.cookie("token", token, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "strict",
+    secure: true, // must be true in production
+    sameSite: "none", // CRITICAL FIX
     maxAge: 7 * 24 * 60 * 60 * 1000,
   });
 

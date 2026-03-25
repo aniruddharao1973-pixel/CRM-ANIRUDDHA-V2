@@ -41,6 +41,7 @@
 
 // export default router;
 
+// src\routes\auth.routes.js
 import { Router } from "express";
 import {
   register,

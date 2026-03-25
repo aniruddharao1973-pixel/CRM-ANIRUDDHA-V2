@@ -177,16 +177,34 @@ const allowedOrigins = [
 /* =========================================================
    ✅ CORS CONFIG (DYNAMIC)
 ========================================================= */
+// app.use(
+//   cors({
+//     origin: function (origin, callback) {
+//       if (!origin) return callback(null, true);
+
+//       if (allowedOrigins.includes(origin)) {
+//         return callback(null, true);
+//       } else {
+//         return callback(new Error("CORS not allowed"), false);
+//       }
+//     },
+//     credentials: true,
+//   }),
+// );
+
 app.use(
   cors({
     origin: function (origin, callback) {
       if (!origin) return callback(null, true);
 
-      if (allowedOrigins.includes(origin)) {
+      if (
+        allowedOrigins.includes(origin) ||
+        origin.endsWith(".vercel.app") // ✅ KEY FIX
+      ) {
         return callback(null, true);
-      } else {
-        return callback(new Error("CORS not allowed"), false);
       }
+
+      return callback(new Error("CORS not allowed"), false);
     },
     credentials: true,
   }),
@@ -202,9 +220,28 @@ app.use(
 //   },
 // });
 
+// export const io = new Server(server, {
+//   cors: {
+//     origin: allowedOrigins,
+//     methods: ["GET", "POST"],
+//     credentials: true,
+//   },
+// });
+
 export const io = new Server(server, {
   cors: {
-    origin: allowedOrigins,
+    origin: (origin, callback) => {
+      if (!origin) return callback(null, true);
+
+      if (
+        allowedOrigins.includes(origin) ||
+        origin.endsWith(".vercel.app") // ✅ KEY FIX
+      ) {
+        callback(null, true);
+      } else {
+        callback(new Error("CORS not allowed"));
+      }
+    },
     methods: ["GET", "POST"],
     credentials: true,
   },

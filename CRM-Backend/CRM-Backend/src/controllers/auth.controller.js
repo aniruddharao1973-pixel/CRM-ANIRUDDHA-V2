@@ -49,6 +49,7 @@ export const register = asyncHandler(async (req, res) => {
     httpOnly: true,
     secure: true, // must be true in production
     sameSite: "none", // CRITICAL FIX
+    secure: true,
     maxAge: 7 * 24 * 60 * 60 * 1000,
   });
 
@@ -99,6 +100,7 @@ export const login = asyncHandler(async (req, res) => {
     httpOnly: true,
     secure: true, // must be true in production
     sameSite: "none", // CRITICAL FIX
+    secure: true,
     maxAge: 7 * 24 * 60 * 60 * 1000,
   });
 

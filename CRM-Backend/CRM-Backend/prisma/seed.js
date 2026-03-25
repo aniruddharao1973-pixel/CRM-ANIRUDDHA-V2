@@ -388,4 +388,12 @@ async function main() {
   console.log("🎉 Seed completed successfully!");
 }
 
-main().finally(() => prisma.$disconnect());
+main()
+  .then(() => {
+    console.log("🎉 Seed completed successfully!");
+    return prisma.$disconnect();
+  })
+  .catch((e) => {
+    console.error("❌ Seed failed:", e);
+    return prisma.$disconnect().finally(() => process.exit(1));
+  });
